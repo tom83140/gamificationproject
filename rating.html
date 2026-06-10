@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Team Peer Review · Tier List Scorer</title>
+  <style>
+    :root {
+      --bg: #0b0c15;
+      --surface: #16192b;
+      --surface2: #1e2140;
+      --surface3: #282b50;
+      --text: #e8eaf0;
+      --text-secondary: #a5a9c0;
+      --text-muted: #6b6f8a;
+      --accent: #7c8cf8;
+      --accent-bg: #1a1d3d;
+      --gold: #f0c060;
+      --gold-bg: #3d2e0a;
+      --danger: #f87171;
+      --danger-bg: #3d1a1a;
+      --warning: #fbbf24;
+      --warning-bg: #3d3510;
+      --success: #4ade80;
+      --success-bg: #1a3d24;
+      --radius-sm: 8px;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --shadow: 0 8px 30px rgba(0,0,0,0.5);
+      --transition: 0.2s ease;
+
+      /* Tier row colors (Tiermaker inspired) */
+      --tier-s: #ff6b6b;
+      --tier-s-bg: rgba(255,107,107,0.18);
+      --tier-a: #ff9f43;
+      --tier-a-bg: rgba(255,159,67,0.18);
+      --tier-b: #feca57;
+      --tier-b-bg: rgba(254,202,87,0.2);
+      --tier-c: #54a0ff;
+      --tier-c-bg: rgba(84,160,255,0.18);
+      --tier-d: #5fcc6e;
+      --tier-d-bg: rgba(95,204,110,0.18);
+      --tier-e: #a29bfe;
+      --tier-e-bg: rgba(162,155,254,0.18);
+      --tier-f: #95a5a6;
+      --tier-f-bg: rgba(149,165,166,0.2);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      background-image: 
+        radial-gradient(circle at 20% 10%, rgba(120,140,255,0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(255,150,50,0.07) 0%, transparent 50%);
+    }
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px 24px 40px;
+    }
+
+    /* header */
+    .app-header {
+      text-align: center;
+      padding: 30px 20px 10px;
+      position: relative;
+    }
+    .header-icons {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      font-size: 2.8rem;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      opacity: 0.9;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    }
+    .header-icons span {
+      display: inline-block;
+      animation: floatIcon 3s infinite ease-in-out;
+    }
+    .header-icons span:nth-child(2) { animation-delay: 0.5s; }
+    .header-icons span:nth-child(3) { animation-delay: 1s; }
+    .header-icons span:nth-child(4) { animation-delay: 1.5s; }
+    @keyframes floatIcon {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .app-header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #f0c060, #ff9f43, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+    .app-header .subtitle {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+
+    /* cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(4px);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .card-header .icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background: var(--accent-bg);
+    }
+    .card-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: var(--gold-bg);
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+
+    /* setup */
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+    .group-checkbox input { position:absolute; opacity:0; pointer-events:none; }
+    .group-checkbox label {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 18px; background: var(--surface2);
+      border: 2px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius); cursor: pointer;
+      font-weight: 600; transition: var(--transition); user-select: none;
+    }
+    .group-checkbox label:hover { border-color: rgba(255,255,255,0.2); background: var(--surface3); }
+    .group-checkbox input:checked + label {
+      border-color: var(--accent); background: var(--accent-bg);
+      box-shadow: 0 0 22px rgba(124,140,248,0.25);
+    }
+    .group-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+    }
+    .alpha .group-icon { background:#ff6b6b33; color:#ff6b6b; }
+    .beta .group-icon { background:#54a0ff33; color:#54a0ff; }
+    .gamma .group-icon { background:#5fcc6e33; color:#5fcc6e; }
+    .delta .group-icon { background:#feca5733; color:#feca57; }
+
+    .btn {
+      padding: 10px 22px; border-radius: 30px; border: none;
+      cursor: pointer; font-weight: 600; font-size: 0.9rem;
+      letter-spacing: 0.02em; transition: var(--transition);
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: inherit; background: var(--surface3); color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-primary { background: var(--accent); color:#fff; border-color: var(--accent); }
+    .btn-primary:hover { background: #93a4ff; box-shadow: 0 8px 24px rgba(124,140,248,0.4); }
+    .btn-secondary:hover { background: #363660; border-color: rgba(255,255,255,0.25); }
+    .btn-danger { background: var(--danger-bg); color: var(--danger); border-color: rgba(248,113,113,0.3); }
+    .btn-danger:hover { background: #4a2020; }
+    .btn-sm { padding: 6px 16px; font-size: 0.8rem; }
+
+    /* scorer tabs */
+    .scorer-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .scorer-tab {
+      padding: 10px 22px; border-radius: 30px; border: 2px solid rgba(255,255,255,0.12);
+      background: var(--surface2); color: var(--text-secondary); cursor: pointer;
+      font-weight: 600; transition: var(--transition); font-family: inherit;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .scorer-tab:hover { border-color: rgba(255,255,255,0.3); color:#fff; }
+    .scorer-tab.active { border-color: var(--accent); background: var(--accent-bg); color:#fff;
+      box-shadow: 0 0 20px rgba(124,140,248,0.3); }
+    .tab-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+
+    /* dimensions grid */
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 18px;
+    }
+    .dimension-card {
+      background: var(--surface2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+    }
+    .dimension-card::before {
+      content: ''; position: absolute; top:0; left:0; right:0; height: 4px;
+      border-radius: 4px 4px 0 0;
+    }
+    .dim-1::before { background: linear-gradient(90deg, #ff6b6b, #ff9f43); }
+    .dim-2::before { background: linear-gradient(90deg, #54a0ff, #a29bfe); }
+    .dim-3::before { background: linear-gradient(90deg, #5fcc6e, #54a0ff); }
+    .dim-4::before { background: linear-gradient(90deg, #feca57, #ff6b6b); }
+
+    .dimension-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dimension-card .dim-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+    .dim-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      font-style: italic;
+      opacity: 0.9;
+    }
+
+    .token-indicator {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+      font-size: 0.8rem; flex-wrap: wrap;
+    }
+    .token-bar-wrap { flex:1; height: 8px; background:rgba(255,255,255,0.06); border-radius:10px; overflow:hidden; min-width:80px; }
+    .token-bar-fill { height:100%; border-radius:10px; transition: width 0.3s; }
+    .token-bar-fill.safe { background: var(--success); }
+    .token-bar-fill.warning { background: var(--warning); }
+    .token-bar-fill.danger { background: var(--danger); }
+
+    /* Tier rows (drag & drop) */
+    .tier-rows {
+      display: flex; flex-direction: column; gap: 6px;
+      margin-top: 8px;
+    }
+    .tier-row {
+      display: flex; align-items: stretch; min-height: 52px;
+      border-radius: 8px; overflow: hidden;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+    .tier-row.drag-over {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--accent);
+      box-shadow: 0 0 14px rgba(124,140,248,0.3);
+    }
+    .tier-label {
+      width: 70px; min-width: 70px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.2rem;
+      letter-spacing: 0.04em;
+      color: #fff;
+      background: var(--surface3);
+      border-right: 1px solid rgba(255,255,255,0.08);
+      user-select: none;
+    }
+    .tier-label small {
+      font-size: 0.65rem; font-weight: 500; opacity: 0.8;
+    }
+    .tier-s .tier-label { background: #ff6b6b; color: #0b0c15; }
+    .tier-a .tier-label { background: #ff9f43; color: #0b0c15; }
+    .tier-b .tier-label { background: #feca57; color: #0b0c15; }
+    .tier-c .tier-label { background: #54a0ff; color: #fff; }
+    .tier-d .tier-label { background: #5fcc6e; color: #0b0c15; }
+    .tier-e .tier-label { background: #a29bfe; color: #0b0c15; }
+    .tier-f .tier-label { background: #95a5a6; color: #0b0c15; }
+
+    .tier-dropzone {
+      flex: 1; display: flex; flex-wrap: wrap;
+      align-items: center; gap: 8px; padding: 8px 12px;
+      min-height: 48px;
+    }
+    .opponent-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 25px;
+      background: var(--surface3); color: #fff;
+      font-weight: 600; font-size: 0.85rem;
+      cursor: grab; user-select: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: transform 0.1s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .opponent-chip:active { cursor: grabbing; }
+    .opponent-chip.dragging {
+      opacity: 0.4; transform: scale(0.95);
+    }
+    .opponent-chip .chip-icon {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .chip-alpha { background:#ff6b6b33; color:#ff6b6b; }
+    .chip-beta { background:#54a0ff33; color:#54a0ff; }
+    .chip-gamma { background:#5fcc6e33; color:#5fcc6e; }
+    .chip-delta { background:#feca5733; color:#feca57; }
+
+    /* summary */
+    .summary-table-wrap { overflow-x: auto; }
+    .summary-table { width:100%; border-collapse: collapse; font-size:0.85rem; }
+    .summary-table th, .summary-table td {
+      padding: 12px 14px; text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .summary-table th { background:var(--surface2); font-weight:700; text-transform:uppercase; font-size:0.7rem; letter-spacing:0.05em; }
+    .total-col { font-weight:700; color:var(--gold); }
+    .rank-badge {
+      display: inline-flex; width:30px; height:30px; border-radius:50%;
+      align-items:center; justify-content:center; font-weight:700;
+    }
+    .rank-1 { background:#f0c060; color:#1a1a00; }
+    .rank-2 { background:#c0c0c0; color:#1a1a1a; }
+    .rank-3 { background:#cd7f32; color:#fff; }
+    .rank-4 { background:#555; color:#ccc; }
+
+    /* toast */
+    .toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+    .toast {
+      padding:12px 20px; border-radius:30px; font-weight:600; font-size:0.85rem;
+      animation: slideIn 0.3s ease, fadeOut 0.3s 2.8s forwards;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.5); pointer-events:auto;
+    }
+    .toast.warning { background:#fbbf24; color:#1a1a00; }
+    .toast.error { background:#f87171; color:#fff; }
+    .toast.success { background:#4ade80; color:#1a3d1a; }
+    @keyframes slideIn { from{transform:translateX(120%);opacity:0;} to{transform:translateX(0);opacity:1;} }
+    @keyframes fadeOut { from{opacity:1;} to{opacity:0; transform:translateY(-10px);} }
+
+    @media (max-width:700px) {
+      .dimensions-grid { grid-template-columns:1fr; }
+      .tier-label { width:55px; min-width:55px; font-size:1rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <header class="app-header">
+    <div class="header-icons">
+      <span>💻</span><span>🌐</span><span>🤝</span><span>⚙️</span>
+    </div>
+    <h1>Team Peer Review</h1>
+    <p class="subtitle">Tier List · Drag & Drop · Token Budget</p>
+  </header>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- SETUP CARD -->
+  <div class="card" id="setupCard">
+    <div class="card-header">
+      <div class="icon">🛠️</div>
+      <div><h2>Round Setup</h2><span class="badge">Step 1</span></div>
+    </div>
+    <p style="color:var(--text-secondary); margin-bottom:14px;">Select which teams participate (2–4):</p>
+    <div class="setup-grid" id="groupCheckboxes">
+      <div class="group-checkbox alpha"><input type="checkbox" id="chkAlpha" value="Alpha" checked><label for="chkAlpha"><span class="group-icon">A</span> Alpha</label></div>
+      <div class="group-checkbox beta"><input type="checkbox" id="chkBeta" value="Beta" checked><label for="chkBeta"><span class="group-icon">B</span> Beta</label></div>
+      <div class="group-checkbox gamma"><input type="checkbox" id="chkGamma" value="Gamma"><label for="chkGamma"><span class="group-icon">Γ</span> Gamma</label></div>
+      <div class="group-checkbox delta"><input type="checkbox" id="chkDelta" value="Delta"><label for="chkDelta"><span class="group-icon">Δ</span> Delta</label></div>
+    </div>
+    <div style="margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="applySetup()">✅ Confirm Setup</button>
+      <button class="btn btn-secondary" onclick="resetAll()">🔄 Reset All</button>
+    </div>
+    <div id="setupInfo" style="margin-top:14px; font-size:0.85rem; color:var(--text-muted);"></div>
+  </div>
+
+  <!-- SCORING CARD (hidden until setup) -->
+  <div class="card" id="scoringCard" style="display:none;">
+    <div class="card-header">
+      <div class="icon" style="background:var(--gold-bg);">🎯</div>
+      <div><h2>Scoring Panel</h2><span class="badge">Step 2</span></div>
+    </div>
+    <div class="scorer-tabs" id="scorerTabs"></div>
+    <div id="currentScorerInfo" style="margin-bottom:16px; font-size:0.9rem; color:var(--text-secondary);"></div>
+    <div class="dimensions-grid" id="dimensionsGrid"></div>
+    <div id="tokenSummary" style="margin-top:18px; padding:14px 18px; background:var(--surface3); border-radius:var(--radius); font-size:0.85rem; display:flex; flex-wrap:wrap; gap:16px; align-items:center;"></div>
+  </div>
+
+  <!-- SUMMARY CARD -->
+  <div class="card" id="summaryCard" style="display:none;">
+    <div class="card-header">
+      <div class="icon" style="background:var(--success-bg);">📊</div>
+      <div><h2>Score Summary</h2><span class="badge">Results</span></div>
+    </div>
+    <div class="summary-table-wrap">
+      <table class="summary-table" id="summaryTable">
+        <thead id="summaryHead"></thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="exportData()">📋 Export JSON</button>
+      <button class="btn btn-sm" onclick="copySummary()">📝 Copy Summary</button>
+      <button class="btn btn-sm btn-primary" onclick="submitRating()">Submit Rating</button>
+      <button class="btn btn-sm btn-danger" onclick="resetAll()">🗑️ Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ---------- STATE ----------
+  const ALL_GROUPS = ['Alpha', 'Beta', 'Gamma', 'Delta'];
+  const GROUP_ICONS = { Alpha:'A', Beta:'B', Gamma:'Γ', Delta:'Δ' };
+  const GROUP_COLORS = { Alpha:'#ff6b6b', Beta:'#54a0ff', Gamma:'#5fcc6e', Delta:'#feca57' };
+  const TIERS = ['S','A','B','C','D','E','F'];
+  const DIM_CLASSES = ['dim-1','dim-2','dim-3','dim-4'];
+  const MAX_PER_DIM = 250;
+  const MAX_TOTAL = 1000;
+  const NUM_DIMS = 4;
+
+  // ----- NEW DIMENSIONS WITH ICONS AND DESCRIPTIONS -----
+  const DIMENSIONS = [
+    { name: 'Breakthrough Value', icon: '💡', desc: 'Is the idea truly novel, or is it an incremental improvement?' },
+    { name: 'Problem‑Solution Fit', icon: '🧩', desc: 'Does it solve a genuine, compelling pain point for a specific audience?' },
+    { name: 'Clarity', icon: '🔍', desc: 'Is the message conveyed clearly and concisely without excessive jargon?' },
+    { name: 'Economic Logic', icon: '📈', desc: 'Are the financial projections, revenue streams, and cost structures realistic?' }
+  ];
+  // For table headers & exports we can just use the name
+  const DIM_NAMES = DIMENSIONS.map(d => d.name);
+
+  let activeGroups = ['Alpha', 'Beta'];
+  let scores = {};  // { scorer: { dimIndex: { opponent: tier } } }
+  let currentScorer = null;
+  const URL_PARAMS = new URLSearchParams(window.location.search);
+  const EMBED_MODE = URL_PARAMS.get('embed') === '1';
+  const LOCKED_SCORER = URL_PARAMS.get('scorer');
+
+  // ---------- TIER SCORE CALC ----------
+  function getTierScores(numOpponents) {
+    const base = MAX_PER_DIM / numOpponents;
+    return {
+      'S': Math.floor(base * 1.0),
+      'A': Math.floor(base * 0.8),
+      'B': Math.floor(base * 0.65),
+      'C': Math.floor(base * 0.5),
+      'D': Math.floor(base * 0.35),
+      'E': Math.floor(base * 0.2),
+      'F': Math.max(1, Math.floor(base * 0.05)),
+    };
+  }
+  function getTierScore(tier, numOpp) {
+    return getTierScores(numOpp)[tier] || 0;
+  }
+  function getOpponents(scorer) {
+    return activeGroups.filter(g => g !== scorer);
+  }
+  function getNumOpponents() {
+    return Math.max(1, activeGroups.length - 1);
+  }
+
+  // ---------- DOM REFS ----------
+  const $scoringCard = document.getElementById('scoringCard');
+  const $summaryCard = document.getElementById('summaryCard');
+  const $scorerTabs = document.getElementById('scorerTabs');
+  const $dimensionsGrid = document.getElementById('dimensionsGrid');
+  const $tokenSummary = document.getElementById('tokenSummary');
+  const $setupInfo = document.getElementById('setupInfo');
+  const $currentScorerInfo = document.getElementById('currentScorerInfo');
+  const $summaryHead = document.getElementById('summaryHead');
+  const $summaryBody = document.getElementById('summaryBody');
+  const $toastContainer = document.getElementById('toastContainer');
+
+  // ---------- TOAST ----------
+  function showToast(msg, type='warning') {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = msg;
+    $toastContainer.appendChild(t);
+    setTimeout(() => { if(t.parentNode) t.remove(); }, 3200);
+  }
+
+  // ---------- CHECKBOX HELPERS ----------
+  function getCheckedGroups() {
+    const g = [];
+    if(document.getElementById('chkAlpha').checked) g.push('Alpha');
+    if(document.getElementById('chkBeta').checked) g.push('Beta');
+    if(document.getElementById('chkGamma').checked) g.push('Gamma');
+    if(document.getElementById('chkDelta').checked) g.push('Delta');
+    return g;
+  }
+  function updateSetupInfo() {
+    const groups = getCheckedGroups();
+    const n = groups.length;
+    if(n < 2) {
+      $setupInfo.innerHTML = '⚠️ Select at least 2 teams';
+      $setupInfo.style.color = '#f87171';
+    } else if(n > 4) {
+      $setupInfo.innerHTML = '⚠️ Maximum 4 teams';
+      $setupInfo.style.color = '#f87171';
+    } else {
+      const oppCount = n-1;
+      const tierMap = getTierScores(oppCount);
+      const info = TIERS.map(t=>`${t}=${tierMap[t]}`).join(' · ');
+      $setupInfo.innerHTML = `✅ <b>${n}</b> teams · <b>${oppCount}</b> opponents each · per‑dim limit <b>250</b> · Tier scores: ${info}`;
+      $setupInfo.style.color = '#4ade80';
+    }
+  }
+  // listeners for live info
+  ['chkAlpha','chkBeta','chkGamma','chkDelta'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', updateSetupInfo);
+  });
+
+  // ---------- APPLY SETUP ----------
+  window.applySetup = function() {
+    const groups = getCheckedGroups();
+    if(groups.length < 2) { showToast('Please select at least 2 teams','error'); return; }
+    if(groups.length > 4) { showToast('Maximum 4 teams allowed','error'); return; }
+    activeGroups = groups;
+    // init scores
+    scores = {};
+    activeGroups.forEach(scorer => {
+      scores[scorer] = {};
+      for(let d=0; d<NUM_DIMS; d++) {
+        scores[scorer][d] = {};
+        getOpponents(scorer).forEach(opp => { scores[scorer][d][opp] = 'C'; });
+      }
+    });
+    currentScorer = activeGroups[0];
+    $scoringCard.style.display = '';
+    $summaryCard.style.display = '';
+    updateSetupInfo();
+    renderAll();
+    saveToStorage();
+    showToast(`Setup applied! ${activeGroups.length} teams.`,'success');
+  };
+
+  // ---------- RENDER ALL ----------
+  function renderAll() {
+    renderScorerTabs();
+    renderDimensions();
+    renderTokenSummary();
+    renderSummary();
+  }
+
+  function renderScorerTabs() {
+    if (EMBED_MODE && LOCKED_SCORER) {
+      $scorerTabs.innerHTML = '';
+      $currentScorerInfo.innerHTML = `Scorer: <b style="color:${GROUP_COLORS[currentScorer]};">${currentScorer}</b> · assigning tokens to <b>${getOpponents(currentScorer).length}</b> opponents`;
+      return;
+    }
+    $scorerTabs.innerHTML = activeGroups.map(g => {
+      const active = g===currentScorer ? ' active' : '';
+      return `<button class="scorer-tab${active}" onclick="switchScorer('${g}')">
+        <span class="tab-dot" style="background:${GROUP_COLORS[g]};"></span> ${g} scoring
+      </button>`;
+    }).join('');
+    $currentScorerInfo.innerHTML = `Scorer: <b style="color:${GROUP_COLORS[currentScorer]};">${currentScorer}</b> · assigning tokens to <b>${getOpponents(currentScorer).length}</b> opponents`;
+  }
+
+  // ----- DRAG & DROP DIMENSIONS -----
+  function renderDimensions() {
+    const opponents = getOpponents(currentScorer);
+    const numOpp = opponents.length;
+    const tierMap = getTierScores(numOpp);
+    $dimensionsGrid.innerHTML = '';
+
+    for(let d=0; d<NUM_DIMS; d++) {
+      const dimClass = DIM_CLASSES[d];
+      const dim = DIMENSIONS[d];
+      const dimName = dim.name;
+      const dimIcon = dim.icon;
+      const dimDesc = dim.desc;
+      // calculate dim total
+      let dimTotal = 0;
+      opponents.forEach(opp => {
+        const t = (scores[currentScorer]?.[d]?.[opp]) || 'C';
+        dimTotal += getTierScore(t, numOpp);
+      });
+      const remaining = MAX_PER_DIM - dimTotal;
+      const barPercent = Math.min(100, (dimTotal/MAX_PER_DIM)*100);
+      let barClass = 'safe';
+      if(dimTotal > MAX_PER_DIM) barClass = 'danger';
+      else if(dimTotal > MAX_PER_DIM*0.85) barClass = 'warning';
+
+      // build tier rows
+      let rowsHtml = '';
+      TIERS.forEach(tier => {
+        const tierScore = tierMap[tier];
+        const opponentsInThisTier = opponents.filter(opp => {
+          const currentTier = (scores[currentScorer]?.[d]?.[opp]) || 'C';
+          return currentTier === tier;
+        });
+        const chipsHtml = opponentsInThisTier.map(opp => {
+          const iconClass = `chip-${opp.toLowerCase()}`;
+          return `<div class="opponent-chip" draggable="true" 
+            data-scorer="${currentScorer}" data-dim="${d}" data-opponent="${opp}" data-fromtier="${tier}"
+            ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
+            <span class="chip-icon ${iconClass}">${GROUP_ICONS[opp]}</span> ${opp}
+          </div>`;
+        }).join('');
+
+        rowsHtml += `
+          <div class="tier-row tier-${tier.toLowerCase()}"
+               ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${tier}')">
+            <div class="tier-label">${tier} <small>${tierScore} pts</small></div>
+            <div class="tier-dropzone" data-tier="${tier}">${chipsHtml}</div>
+          </div>`;
+      });
+
+      $dimensionsGrid.innerHTML += `
+        <div class="dimension-card ${dimClass}">
+          <h3><span class="dim-icon">${dimIcon}</span> ${dimName}</h3>
+          <div class="dim-subtitle">${dimDesc}</div>
+          <div class="token-indicator">
+            <span style="font-size:0.75rem;">Used</span>
+            <b style="color:${dimTotal>MAX_PER_DIM?'#f87171':'var(--text)'};">${dimTotal}</b>
+            <span style="font-size:0.75rem;">/ ${MAX_PER_DIM}</span>
+            <div class="token-bar-wrap"><div class="token-bar-fill ${barClass}" style="width:${barPercent}%;"></div></div>
+            <span style="font-size:0.72rem; color:${remaining<0?'#f87171':'var(--text-muted)'};">${remaining>=0?'left':'over'} ${Math.abs(remaining)}</span>
+          </div>
+          <div class="tier-rows">${rowsHtml}</div>
+        </div>`;
+    }
+  }
+
+  function renderTokenSummary() {
+    const opponents = getOpponents(currentScorer);
+    const numOpp = opponents.length;
+    let total = 0;
+    const dimTotals = [];
+    for(let d=0; d<NUM_DIMS; d++) {
+      let dt = 0;
+      opponents.forEach(opp => {
+        const t = (scores[currentScorer]?.[d]?.[opp]) || 'C';
+        dt += getTierScore(t, numOpp);
+      });
+      dimTotals.push(dt);
+      total += dt;
+    }
+    const rem = MAX_TOTAL - total;
+    let statusColor = '#4ade80', statusText = '✅ Budget OK';
+    if(total > MAX_TOTAL) { statusColor='#f87171'; statusText='❌ Over budget!'; }
+    else if(total > MAX_TOTAL*0.9) { statusColor='#fbbf24'; statusText='⚠️ Approaching limit'; }
+
+    const dimDetails = dimTotals.map((dt,i)=>`<span style="color:${dt>MAX_PER_DIM?'#f87171':'var(--text-secondary)'}">${DIM_NAMES[i]}: <b>${dt}</b>/250</span>`).join(' &nbsp;|&nbsp; ');
+
+    $tokenSummary.innerHTML = `
+      <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap; width:100%;">
+        <div><span style="font-size:0.8rem;">Total used </span><b style="font-size:1.3rem; color:${statusColor};">${total}</b><span style="font-size:0.8rem;"> / ${MAX_TOTAL}</span> <span style="color:${statusColor};font-weight:600;">${statusText}</span></div>
+        <div style="flex:1; font-size:0.78rem; color:var(--text-muted);">${dimDetails}</div>
+        <div style="font-size:0.75rem;">Remaining: <b style="color:${rem>=0?'#4ade80':'#f87171'}">${rem}</b></div>
+      </div>`;
+  }
+
+  function renderSummary() {
+    const numOpp = getNumOpponents();
+    let header = '<tr><th>Team</th>';
+    DIMENSIONS.forEach(dim => header += `<th><span class="dim-icon" style="font-size:1.1rem;">${dim.icon}</span> ${dim.name}</th>`);
+    header += '<th>Total tokens</th><th>Rank</th></tr>';
+    $summaryHead.innerHTML = header;
+
+    const received = {};
+    activeGroups.forEach(g => { received[g] = { total:0, dims:[0,0,0,0] }; });
+    activeGroups.forEach(scorer => {
+      const opps = getOpponents(scorer);
+      for(let d=0; d<NUM_DIMS; d++) {
+        opps.forEach(opp => {
+          const t = (scores[scorer]?.[d]?.[opp]) || 'C';
+          const pts = getTierScore(t, numOpp);
+          received[opp].dims[d] += pts;
+          received[opp].total += pts;
+        });
+      }
+    });
+    const sorted = [...activeGroups].sort((a,b)=>received[b].total - received[a].total);
+    let body = '';
+    sorted.forEach((g,idx)=>{
+      const r = received[g];
+      const rank = idx+1;
+      const rankClass = rank<=3 ? `rank-${rank}` : 'rank-4';
+      const dimCells = r.dims.map(v=>`<td style="font-family:monospace;">${v}</td>`).join('');
+      body += `<tr>
+        <td style="font-weight:700; color:${GROUP_COLORS[g]};"><span class="chip-icon chip-${g.toLowerCase()}" style="display:inline-block; width:22px; height:22px; line-height:22px; border-radius:50%; text-align:center; margin-right:6px; font-size:12px; background:${GROUP_COLORS[g]}22; color:${GROUP_COLORS[g]};">${GROUP_ICONS[g]}</span>${g}</td>
+        ${dimCells}
+        <td class="total-col">🪙 ${r.total}</td>
+        <td><span class="rank-badge ${rankClass}">#${rank}</span></td>
+      </tr>`;
+    });
+    $summaryBody.innerHTML = body;
+  }
+
+  // ---------- DRAG HANDLERS ----------
+  window.handleDragStart = function(e) {
+    const chip = e.target.closest('.opponent-chip');
+    if(!chip) return;
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      scorer: chip.dataset.scorer,
+      dim: parseInt(chip.dataset.dim),
+      opponent: chip.dataset.opponent,
+      fromTier: chip.dataset.fromtier
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+    chip.classList.add('dragging');
+    setTimeout(() => { if(chip) chip.style.display = 'none'; }, 0);
+  };
+  window.handleDragEnd = function(e) {
+    const chip = e.target.closest('.opponent-chip');
+    if(chip) {
+      chip.classList.remove('dragging');
+      chip.style.display = '';
+    }
+    document.querySelectorAll('.tier-row.drag-over').forEach(el => el.classList.remove('drag-over'));
+  };
+  window.handleDragOver = function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const row = e.currentTarget;
+    if(!row.classList.contains('drag-over')) row.classList.add('drag-over');
+  };
+  window.handleDragLeave = function(e) {
+    const row = e.currentTarget;
+    if(row.classList.contains('drag-over')) row.classList.remove('drag-over');
+  };
+  window.handleDrop = function(e, targetTier) {
+    e.preventDefault();
+    const row = e.currentTarget;
+    row.classList.remove('drag-over');
+    const raw = e.dataTransfer.getData('text/plain');
+    if(!raw) return;
+    let data;
+    try { data = JSON.parse(raw); } catch(err) { return; }
+    const { scorer, dim, opponent, fromTier } = data;
+    if(!scorer || dim===undefined || !opponent) return;
+    if(scorer !== currentScorer) {
+      showToast('You can only move chips for the current scorer.','warning');
+      return;
+    }
+    if(targetTier === fromTier) return;
+
+    if(!scores[scorer]) scores[scorer] = {};
+    if(!scores[scorer][dim]) scores[scorer][dim] = {};
+    scores[scorer][dim][opponent] = targetTier;
+
+    const numOpp = getNumOpponents();
+    const opponents = getOpponents(scorer);
+    let dimTotal = 0;
+    opponents.forEach(opp => {
+      const t = (scores[scorer][dim]?.[opp]) || 'C';
+      dimTotal += getTierScore(t, numOpp);
+    });
+    if(dimTotal > MAX_PER_DIM) {
+      showToast(`${DIM_NAMES[dim]} used ${dimTotal}/${MAX_PER_DIM} – over budget!`,'warning');
+    }
+    let totalAll = 0;
+    for(let d=0; d<NUM_DIMS; d++) {
+      opponents.forEach(opp => {
+        const t = (scores[scorer][d]?.[opp]) || 'C';
+        totalAll += getTierScore(t, numOpp);
+      });
+    }
+    if(totalAll > MAX_TOTAL) {
+      showToast(`Total ${totalAll}/${MAX_TOTAL} tokens – over overall budget!`,'error');
+    }
+
+    renderDimensions();
+    renderTokenSummary();
+    renderSummary();
+    saveToStorage();
+  };
+
+  // ---------- SWITCH SCORER ----------
+  window.switchScorer = function(group) {
+    if (EMBED_MODE && LOCKED_SCORER && group !== LOCKED_SCORER) return;
+    currentScorer = group;
+    renderAll();
+    saveToStorage();
+  };
+
+  // ---------- RESET ----------
+  window.resetAll = function() {
+    if(confirm('Reset all scores and setup? This cannot be undone.')) {
+      activeGroups = ['Alpha','Beta'];
+      scores = {};
+      currentScorer = null;
+      document.getElementById('chkAlpha').checked = true;
+      document.getElementById('chkBeta').checked = true;
+      document.getElementById('chkGamma').checked = false;
+      document.getElementById('chkDelta').checked = false;
+      $scoringCard.style.display = 'none';
+      $summaryCard.style.display = 'none';
+      updateSetupInfo();
+      localStorage.removeItem('peerReviewData');
+      showToast('Everything reset.','success');
+    }
+  };
+
+  // ---------- EXPORT / COPY ----------
+  function buildRatingPayload() {
+    const numOpp = getNumOpponents();
+    const received = {};
+    const scorerReceived = {};
+    activeGroups.forEach(g => { received[g] = { total:0, dims:[0,0,0,0] }; });
+    activeGroups.forEach(scorer => {
+      const opps = getOpponents(scorer);
+      for(let d=0; d<NUM_DIMS; d++) {
+        opps.forEach(opp => {
+          const t = (scores[scorer]?.[d]?.[opp]) || 'C';
+          const pts = getTierScore(t, numOpp);
+          received[opp].dims[d] += pts;
+          received[opp].total += pts;
+        });
+      }
+    });
+    getOpponents(currentScorer).forEach(opp => {
+      scorerReceived[opp] = { total: 0, dims: [0,0,0,0] };
+      for(let d=0; d<NUM_DIMS; d++) {
+        const t = (scores[currentScorer]?.[d]?.[opp]) || 'C';
+        const pts = getTierScore(t, numOpp);
+        scorerReceived[opp].dims[d] = pts;
+        scorerReceived[opp].total += pts;
+      }
+    });
+    return {
+      activeGroups,
+      currentScorer,
+      roomId: URL_PARAMS.get('roomId') || '',
+      teamId: URL_PARAMS.get('teamId') || '',
+      tierMap: getTierScores(numOpp),
+      dimensions: DIMENSIONS,
+      scores,
+      received,
+      scorerReceived,
+      scorerScores: scores[currentScorer] || {},
+      submittedAt: new Date().toISOString()
+    };
+  }
+
+  window.submitRating = function() {
+    const payload = buildRatingPayload();
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'rating_submit', payload }, window.location.origin);
+      showToast('Rating submitted to game room.','success');
+      return;
+    }
+    showToast('Rating JSON generated. Open this page from the game room to submit to Google Sheets.','warning');
+  };
+
+  window.exportData = function() {
+    const data = buildRatingPayload();
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `peer-review-${new Date().toISOString().slice(0,10)}.json`; a.click();
+    showToast('JSON exported.','success');
+  };
+  window.copySummary = function() {
+    const numOpp = getNumOpponents();
+    const received = {};
+    activeGroups.forEach(g => { received[g] = { total:0, dims:[0,0,0,0] }; });
+    activeGroups.forEach(scorer => {
+      const opps = getOpponents(scorer);
+      for(let d=0; d<NUM_DIMS; d++) {
+        opps.forEach(opp => {
+          const t = (scores[scorer]?.[d]?.[opp]) || 'C';
+          received[opp].dims[d] += getTierScore(t, numOpp);
+          received[opp].total += getTierScore(t, numOpp);
+        });
+      }
+    });
+    const sorted = [...activeGroups].sort((a,b)=>received[b].total-received[a].total);
+    let text = '🏆 Peer Review Summary\n'+'='.repeat(35)+'\n';
+    sorted.forEach((g,i)=>{
+      const r = received[g];
+      text += `#${i+1} ${g}: ${r.total} tokens (${r.dims.map((v,j)=>`${DIM_NAMES[j]}=${v}`).join(', ')})\n`;
+    });
+    text += '\nTier scores: '+TIERS.map(t=>`${t}=${getTierScore(t,numOpp)}`).join(', ')+'\n';
+    navigator.clipboard.writeText(text).then(()=>showToast('Summary copied!','success')).catch(()=>showToast('Copy failed','error'));
+  };
+
+  // ---------- STORAGE ----------
+  function saveToStorage() {
+    try { localStorage.setItem('peerReviewData', JSON.stringify({activeGroups, scores, currentScorer})); } catch(e){}
+  }
+  function loadStorage() {
+    try {
+      const raw = localStorage.getItem('peerReviewData');
+      if(!raw) return false;
+      const d = JSON.parse(raw);
+      if(d.activeGroups && Array.isArray(d.activeGroups) && d.activeGroups.length>=2) {
+        activeGroups = d.activeGroups;
+        scores = d.scores || {};
+        currentScorer = d.currentScorer && activeGroups.includes(d.currentScorer) ? d.currentScorer : activeGroups[0];
+        activeGroups.forEach(s=>{
+          if(!scores[s]) scores[s]={};
+          for(let i=0;i<NUM_DIMS;i++) {
+            if(!scores[s][i]) scores[s][i]={};
+            getOpponents(s).forEach(o=>{ if(!scores[s][i][o]) scores[s][i][o]='C'; });
+          }
+        });
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+
+  // ---------- INIT ----------
+  function applyEmbeddedSetup() {
+    const requestedGroups = (URL_PARAMS.get('active') || '')
+      .split(',')
+      .map(g => g.trim())
+      .filter(g => ALL_GROUPS.includes(g));
+    if (requestedGroups.length < 2) return false;
+
+    activeGroups = requestedGroups;
+    currentScorer = activeGroups.includes(LOCKED_SCORER) ? LOCKED_SCORER : activeGroups[0];
+    scores = {};
+    activeGroups.forEach(scorer => {
+      scores[scorer] = {};
+      for(let d=0; d<NUM_DIMS; d++) {
+        scores[scorer][d] = {};
+        getOpponents(scorer).forEach(opp => { scores[scorer][d][opp] = 'C'; });
+      }
+    });
+
+    document.getElementById('chkAlpha').checked = activeGroups.includes('Alpha');
+    document.getElementById('chkBeta').checked = activeGroups.includes('Beta');
+    document.getElementById('chkGamma').checked = activeGroups.includes('Gamma');
+    document.getElementById('chkDelta').checked = activeGroups.includes('Delta');
+    document.getElementById('setupCard').style.display = 'none';
+    $scoringCard.style.display = '';
+    $summaryCard.style.display = '';
+    updateSetupInfo();
+    renderAll();
+    return true;
+  }
+
+  function init() {
+    if (EMBED_MODE && applyEmbeddedSetup()) return;
+
+    const loaded = loadStorage();
+    if(loaded) {
+      document.getElementById('chkAlpha').checked = activeGroups.includes('Alpha');
+      document.getElementById('chkBeta').checked = activeGroups.includes('Beta');
+      document.getElementById('chkGamma').checked = activeGroups.includes('Gamma');
+      document.getElementById('chkDelta').checked = activeGroups.includes('Delta');
+      $scoringCard.style.display = '';
+      $summaryCard.style.display = '';
+      updateSetupInfo();
+      renderAll();
+    } else {
+      activeGroups = ['Alpha','Beta'];
+      scores = {}; currentScorer = null;
+      document.getElementById('chkAlpha').checked = true;
+      document.getElementById('chkBeta').checked = true;
+      document.getElementById('chkGamma').checked = false;
+      document.getElementById('chkDelta').checked = false;
+      updateSetupInfo();
+    }
+  }
+  init();
+  window.addEventListener('beforeunload', ()=>{ if(Object.keys(scores).length) saveToStorage(); });
+})();
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(__dirname, {
+    index: false,
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -19,6 +20,10 @@ app.use(express.static(__dirname, {
         }
     }
 }));
+
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'intro.html')));
+app.get('/app', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/app.html', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const SPREADSHEET_ID = '15-aJvO1NEYRevBXK-Zz9noNNQUisiBf_J0NoyXgELO4';
 const serviceAccountPath = path.join(__dirname, 'service-account.json');
@@ -81,11 +86,12 @@ io.on('connection', (socket) => {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         const initialState = {
             currentStage: 'login',
-            selectedPromptIndex: 1,
+            selectedPromptIndex: Math.floor(Math.random() * 6),
             teams: {},
             teamStages: {},
             stageTimers: {},
             votes: {},
+            ratingSubmissions: {},
             pitchOrder: [],
             currentPitchingTeam: null,
             roundNumber: 1,
@@ -145,7 +151,7 @@ io.on('connection', (socket) => {
     socket.on('advance_team_stage', ({ roomId, teamId, newStage }) => {
         const state = rooms.get(roomId);
         if (!state || !state.teams[teamId]) return;
-        const validStages = ['mural', 'upload', 'pitch_prep_done'];
+        const validStages = ['mural', 'pitch_prep_done'];
         if (!validStages.includes(newStage)) return;
         state.teamStages[teamId] = newStage;
         io.to(roomId).emit('state_updated', state);
@@ -157,16 +163,27 @@ io.on('connection', (socket) => {
             if (allDone && state.currentStage === 'quiz') {
                 state.currentStage = 'pitch_prep';
                 state.pitchOrder = allTeams.slice();
-                state.currentPitchingTeam = null;
+                state.currentPitchingTeam = state.pitchOrder[0] || null;
+                state.stageTimers.pitch_prep = { running: false, ended: false, endTime: null };
+                state.stageTimers.pitch = { running: false, ended: false, endTime: null };
                 allTeams.forEach(tid => { state.teamStages[tid] = ''; });
                 io.to(roomId).emit('state_updated', state);
             }
         }
     });
 
-    socket.on('submit_quiz', ({ roomId, teamId, selectedPromptIndex, answers, details, score }) => {
+    socket.on('submit_quiz', ({ roomId, teamId, selectedPromptIndex, answers, details, score }, callback) => {
         const state = rooms.get(roomId);
-        if (state?.teams[teamId]) {
+        if (!state) {
+            if (callback) callback({ success: false, error: 'Room does not exist' });
+            return;
+        }
+        if (!state.teams[teamId]) {
+            if (callback) callback({ success: false, error: 'Team does not exist' });
+            return;
+        }
+
+        if (state.teams[teamId]) {
             const safeDetails = Array.isArray(details) ? details.map((item) => ({
                 questionIndex: Number(item.questionIndex),
                 question: String(item.question || ''),
@@ -192,7 +209,6 @@ io.on('connection', (socket) => {
                 details: safeDetails,
                 submittedAt: Date.now()
             };
-            state.teamStages[teamId] = 'mural';
             io.to(roomId).emit('state_updated', state);
             appendLog([
                 new Date().toISOString(),
@@ -203,6 +219,7 @@ io.on('connection', (socket) => {
                 '',
                 JSON.stringify(state.teams[teamId].quizSubmission)
             ]);
+            if (callback) callback({ success: true, gameState: state });
         }
     });
 
@@ -240,8 +257,132 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('submit_rating', ({ roomId, teamId, payload }, callback) => {
+        const state = rooms.get(roomId);
+        if (!state) {
+            if (callback) callback({ success: false, error: 'Room does not exist' });
+            return;
+        }
+        if (!state.teams[teamId]) {
+            if (callback) callback({ success: false, error: 'Team does not exist' });
+            return;
+        }
+
+        if (!state.ratingSubmissions) state.ratingSubmissions = {};
+        const safePayload = {
+            ...(payload || {}),
+            scorerTeamId: teamId,
+            scorerTeamName: state.teams[teamId].name,
+            roomId,
+            roundNumber: state.roundNumber,
+            confirmedAt: new Date().toISOString()
+        };
+
+        state.ratingSubmissions[teamId] = safePayload;
+        appendLog([
+            new Date().toISOString(),
+            'Rating JSON Submitted',
+            roomId,
+            state.teams[teamId].name,
+            '',
+            '',
+            JSON.stringify(safePayload)
+        ]);
+
+        const allTeams = Object.keys(state.teams);
+        const allRated = allTeams.length > 0 && allTeams.every(tid => state.ratingSubmissions[tid]);
+
+        if (allRated) {
+            state.currentStage = 'results';
+            io.to(roomId).emit('state_updated', state);
+        } else {
+            socket.to(roomId).emit('rating_submission_updated', {
+                teamId,
+                submission: safePayload,
+                submittedTeamIds: Object.keys(state.ratingSubmissions),
+                allRated: false
+            });
+        }
+
+        if (callback) callback({ success: true, allRated, gameState: state });
+    });
+
+    socket.on('begin_pitch', ({ roomId }) => {
+        const state = rooms.get(roomId);
+        if (!state || state.currentStage !== 'pitch_prep') return;
+
+        state.currentStage = 'pitch';
+        state.stageTimers.pitch = { running: false, ended: false, endTime: null };
+        io.to(roomId).emit('state_updated', state);
+    });
+
+    socket.on('complete_pitch', ({ roomId }) => {
+        const state = rooms.get(roomId);
+        if (!state || state.currentStage !== 'pitch') return;
+
+        const order = Array.isArray(state.pitchOrder) ? state.pitchOrder : Object.keys(state.teams);
+        const currentIndex = order.indexOf(state.currentPitchingTeam);
+        const nextTeamId = currentIndex >= 0 ? order[currentIndex + 1] : order[0];
+
+        state.stageTimers.pitch_prep = { running: false, ended: false, endTime: null };
+        state.stageTimers.pitch = { running: false, ended: false, endTime: null };
+
+        if (nextTeamId) {
+            state.currentPitchingTeam = nextTeamId;
+            state.currentStage = 'pitch_prep';
+        } else {
+            state.currentPitchingTeam = null;
+            state.currentStage = 'voting';
+        }
+
+        io.to(roomId).emit('state_updated', state);
+    });
+
+    socket.on('skip_pitch_prep', ({ roomId }) => {
+        const state = rooms.get(roomId);
+        if (!state || state.currentStage !== 'pitch_prep') return;
+        state.stageTimers.pitch_prep = { running: false, ended: true, endTime: Date.now() };
+        state.currentStage = 'pitch';
+        state.stageTimers.pitch = { running: false, ended: false, endTime: null };
+        io.to(roomId).emit('state_updated', state);
+    });
+
+    socket.on('skip_pitch', ({ roomId }) => {
+        const state = rooms.get(roomId);
+        if (!state || state.currentStage !== 'pitch') return;
+        const order = Array.isArray(state.pitchOrder) ? state.pitchOrder : Object.keys(state.teams);
+        const currentIndex = order.indexOf(state.currentPitchingTeam);
+        const nextTeamId = currentIndex >= 0 ? order[currentIndex + 1] : order[0];
+
+        state.stageTimers.pitch_prep = { running: false, ended: false, endTime: null };
+        state.stageTimers.pitch = { running: false, ended: true, endTime: Date.now() };
+
+        if (nextTeamId) {
+            state.currentPitchingTeam = nextTeamId;
+            state.currentStage = 'pitch_prep';
+        } else {
+            state.currentPitchingTeam = null;
+            state.currentStage = 'voting';
+        }
+
+        io.to(roomId).emit('state_updated', state);
+    });
+
     socket.on('start_timer', ({ roomId, stageKey, endTime }) => {
-        socket.to(roomId).emit('timer_started', { stageKey, endTime });
+        const state = rooms.get(roomId);
+        if (!state) return;
+        const allowedTimers = ['brainstorm', 'pitch_prep', 'pitch'];
+        if (!allowedTimers.includes(stageKey)) return;
+
+        if (!state.stageTimers) state.stageTimers = {};
+        state.stageTimers[stageKey] = {
+            endTime: Number(endTime),
+            running: true,
+            ended: false
+        };
+
+        io.to(roomId).emit('timer_started', { stageKey, endTime: Number(endTime) });
+        io.to(roomId).emit('state_updated', state);
     });
 
     socket.on('disconnect', () => {
@@ -249,8 +390,6 @@ io.on('connection', (socket) => {
         appendLog([new Date().toISOString(), 'Disconnected', '', '', '', '', socket.id]);
     });
 });
-
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const PORT = process.env.PORT || 3000;
 initSheet().then(() => {

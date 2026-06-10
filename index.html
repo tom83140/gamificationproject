@@ -7,6 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Brainstorm Arena - Multi-Room Innovation Competition</title>
+    <link rel="icon" type="image/png" href="/favicon.PNG">
+    <script src="/emailupdater.js"></script>
+    <script src="/quizupdater.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* ========== Core styles ========== */
@@ -141,26 +144,47 @@
         .login-card.selected { border-color: #06b6d4; box-shadow: var(--shadow-glow); background: #f0fdff; }
         .login-card .team-avatar { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 16px; object-fit: cover; border: 3px solid #e2e8f0; }
 
-        .email-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; max-height: 400px; overflow-y: auto; }
-        .email-card { background: #fff; border-radius: var(--radius-md); padding: 16px; border: 1px solid #e2e8f0; box-shadow: var(--shadow-sm); font-size: 0.9rem; }
-        .email-card .keyword-tag { display: inline-block; background: #dbeafe; color: #2563eb; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; margin-top: 6px; }
+        .email-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; max-height: 460px; overflow-y: auto; }
+        .email-card { background: #fff; border-radius: var(--radius-md); padding: 16px; border: 1px solid #e2e8f0; box-shadow: var(--shadow-sm); font-size: 0.9rem; cursor: pointer; text-align: left; transition: var(--transition); }
+        .email-card:hover { transform: translateY(-2px); border-color: #06b6d4; }
+        .email-card.expanded { grid-column: 1 / -1; }
+        .keyword-tag { display: inline-block; background: #dbeafe; color: #2563eb; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; margin-top: 6px; }
+        .email-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #334155; }
+        .email-card-hint { display: block; margin-top: 8px; color: #94a3b8; font-size: 0.75rem; font-weight: 700; }
+        .email-modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 900; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .email-modal { width: min(760px, 100%); max-height: min(720px, 88vh); overflow-y: auto; background: #fff; border-radius: var(--radius-lg); padding: 26px; box-shadow: var(--shadow-lg); border: 1px solid #e2e8f0; }
+        .email-modal-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+        .email-modal-title { font-size: 1.3rem; font-weight: 800; color: #0f172a; }
+        .email-modal-from { color: #64748b; font-size: 0.9rem; margin-top: 4px; }
+        .email-modal-body { white-space: pre-line; color: #334155; line-height: 1.7; }
+        .email-modal-close { border: 0; background: #f1f5f9; color: #334155; border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-weight: 900; flex: 0 0 auto; }
 
         .quiz-question { background: #fff; border-radius: var(--radius-lg); padding: 24px; margin-bottom: 16px; border: 1px solid #e2e8f0; }
-        .quiz-option { padding: 10px 18px; border-radius: 30px; cursor: pointer; border: 2px solid #e2e8f0; background: #fff; font-weight: 600; margin-right: 8px; }
+        .quiz-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
+        .quiz-option { display: flex; align-items: center; min-height: 48px; padding: 10px 14px; border-radius: 14px; cursor: pointer; border: 2px solid #e2e8f0; background: #fff; font-weight: 600; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
         .quiz-option:hover { border-color: #06b6d4; }
         .quiz-option.selected { background: #06b6d4; color: #fff; border-color: #06b6d4; }
         .quiz-option.correct { background: #10b981; color: #fff; border-color: #10b981; }
         .quiz-option.incorrect { background: #ef4444; color: #fff; border-color: #ef4444; }
+        .quiz-option.correct-answer { background: #f0fdf4; color: #065f46; border: 2px dashed #10b981; animation: correctAnswerPulse 1s ease-in-out infinite; }
+        .quiz-option.correct-answer.selected { background: #10b981; color: #fff; }
+        @keyframes correctAnswerPulse { 0%, 100% { box-shadow: 0 0 0 rgba(16,185,129,0); } 50% { box-shadow: 0 0 18px rgba(16,185,129,0.65); } }
 
         .timer-display { font-size: 4rem; font-weight: 900; text-align: center; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .timer-display.warning { background: var(--gradient-3); animation: blink 1s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
         .iframe-container { width: 100%; height: 600px; border-radius: var(--radius-lg); overflow: hidden; border: 2px solid #e2e8f0; }
-        .upload-zone { border: 3px dashed #cbd5e1; border-radius: var(--radius-lg); padding: 48px; text-align: center; cursor: pointer; }
-        .upload-zone:hover { border-color: #06b6d4; background: #f0fdff; }
+        .iframe-container iframe { width: 100%; height: 100%; border: 0; display: block; }
+        .mural-container { height: auto; min-height: 480px; aspect-ratio: 16 / 9; background: #f4f4f4; }
         .vote-row { display: flex; align-items: center; gap: 16px; padding: 16px; background: #fff; border-radius: var(--radius-md); margin-bottom: 12px; }
         .vote-slider { flex: 1; accent-color: #06b6d4; }
+        .rating-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 18px; }
+        .rating-card { background: #fff; border-radius: var(--radius-lg); border: 1px solid #e2e8f0; padding: 18px; box-shadow: var(--shadow-sm); }
+        .rating-row { display: grid; grid-template-columns: 1fr 88px; gap: 10px; align-items: center; margin-top: 12px; }
+        .rating-row select { padding: 8px 10px; border-radius: 10px; border: 2px solid #e2e8f0; font-weight: 800; background: #fff; }
+        .rating-total { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #f8fafc; font-weight: 800; }
+        .rating-frame { width: 100%; min-height: 900px; border: 0; border-radius: var(--radius-lg); background: #0b0c15; display: block; }
         .winner-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--gradient-3); color: #fff; padding: 10px 22px; border-radius: 50px; font-weight: 800; animation: bounceIn 0.6s; }
         @keyframes bounceIn { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
         .toast { position: fixed; top: 24px; right: 24px; background: #fff; border-radius: var(--radius-md); padding: 16px 24px; box-shadow: var(--shadow-lg); z-index: 200; font-weight: 600; border-left: 4px solid #10b981; }
@@ -172,6 +196,7 @@
             .card { padding: 20px; }
             .timer-display { font-size: 2.5rem; }
             .iframe-container { height: 400px; }
+            .mural-container { min-height: 360px; }
             .app-header { padding: 12px 16px; gap: 8px; }
             .stage-dot { width: 30px; height: 30px; font-size: 0.7rem; }
             .stage-connector { width: 14px; }
@@ -193,81 +218,18 @@
             const BRAINSTORM_MINUTES = 60;
             const PITCH_PREP_SECONDS = 30;
             const PITCH_SECONDS = 180;
-            const MURAL_URL = 'https://app.mural.co/t/digitalisierungprojektmanage7607/m/digitalisierungprojektmanage7607/1728845607134/48a1c7f1c4debba2900dd396a14fefcf66b84bf7';
-
-            const emailData = [
-                { subject: 'Re: Automation pipeline chaos', from: 'dev.lead@evcompany.com', excerpt: 'Our CI/CD automation scripts are scattered across 12 repos...', keyword: 'automation', promptIndex: 0 },
-                { subject: 'Automated testing bottlenecks', from: 'qa.manager@evcompany.com', excerpt: 'The automated test suite takes 4 hours nightly...', keyword: 'automation', promptIndex: 0 },
-                { subject: 'Code review automation idea', from: 'senior.dev@evcompany.com', excerpt: 'What if we could automate 60% of code reviews...', keyword: 'automation', promptIndex: 0 },
-                { subject: 'Infrastructure as Code mess', from: 'devops@evcompany.com', excerpt: 'Our Terraform configs are becoming unmanageable...', keyword: 'automation', promptIndex: 0 },
-                { subject: 'Automated deployment tracking', from: 'release.eng@evcompany.com', excerpt: 'We need a real-time visual tracker for automated deployments...', keyword: 'automation', promptIndex: 0 },
-                { subject: 'Charging station downtime report', from: 'ops.director@evcompany.com', excerpt: 'Our charging network experienced 23% downtime last quarter...', keyword: 'charging', promptIndex: 1 },
-                { subject: 'Customer complaints - charging', from: 'support.lead@evcompany.com', excerpt: 'We received 500+ complaints about unreliable charging...', keyword: 'charging', promptIndex: 1 },
-                { subject: 'Predictive maintenance for chargers', from: 'data.science@evcompany.com', excerpt: 'Using IoT sensor data, we could predict charger failures...', keyword: 'charging', promptIndex: 1 },
-                { subject: 'Competitor charging uptime comparison', from: 'strategy@evcompany.com', excerpt: 'Our competitors advertise 99.5% uptime...', keyword: 'charging', promptIndex: 1 },
-                { subject: 'Transparent charging status page', from: 'ux.design@evcompany.com', excerpt: 'Design proposal: a public charging reliability dashboard...', keyword: 'charging', promptIndex: 1 },
-                { subject: 'Data privacy initiative', from: 'legal@evcompany.com', excerpt: 'Customers are asking how their driving data is used...', keyword: 'transparency', promptIndex: 2 },
-                { subject: 'Open data for EV owners', from: 'community@evcompany.com', excerpt: 'What if we shared anonymized battery performance data...', keyword: 'transparency', promptIndex: 2 },
-                { subject: 'Trust metrics dashboard', from: 'analytics@evcompany.com', excerpt: 'We should track and publicly share our sustainability metrics...', keyword: 'transparency', promptIndex: 2 },
-                { subject: 'Customer data portal proposal', from: 'product@evcompany.com', excerpt: 'Letting customers view and control their data...', keyword: 'transparency', promptIndex: 2 },
-                { subject: 'Blockchain for supply chain', from: 'innovation@evcompany.com', excerpt: 'Using blockchain to prove ethical sourcing...', keyword: 'transparency', promptIndex: 2 },
-                { subject: 'Battery degradation patterns', from: 'research@evcompany.com', excerpt: 'Our latest study shows 15% faster degradation in hot climates...', keyword: 'battery', promptIndex: 3 },
-                { subject: 'Smart charging algorithm', from: 'algorithm.team@evcompany.com', excerpt: 'New ML model can optimize charging curves...', keyword: 'battery', promptIndex: 3 },
-                { subject: 'Winter range anxiety solution', from: 'marketing@evcompany.com', excerpt: 'Customers in cold regions report 35% range loss...', keyword: 'battery', promptIndex: 3 },
-                { subject: 'Battery health coach app', from: 'mobile.team@evcompany.com', excerpt: 'Idea: a driver-facing app that coaches users...', keyword: 'battery', promptIndex: 3 },
-                { subject: 'Second-life battery marketplace', from: 'sustainability@evcompany.com', excerpt: 'Used EV batteries still have 70% capacity...', keyword: 'battery', promptIndex: 3 },
-                { subject: 'AI-powered service routing', from: 'ai.lab@evcompany.com', excerpt: 'We can use NLP to automatically route service requests...', keyword: 'routing', promptIndex: 4 },
-                { subject: 'Smart navigation for service vans', from: 'fleet@evcompany.com', excerpt: 'Optimizing service vehicle routes saved 18% fuel...', keyword: 'routing', promptIndex: 4 },
-                { subject: 'Customer service chatbot routing', from: 'digital@evcompany.com', excerpt: 'AI chatbot can triage 70% of inquiries...', keyword: 'routing', promptIndex: 4 },
-                { subject: 'Predictive service scheduling', from: 'data.eng@evcompany.com', excerpt: 'Using telemetry data to predict service needs...', keyword: 'routing', promptIndex: 4 },
-                { subject: 'Multi-modal route optimization', from: 'logistics@evcompany.com', excerpt: 'Combining EV charging stops with delivery routes...', keyword: 'routing', promptIndex: 4 }
+            const MURAL_URL = 'https://app.mural.co/embed/3705ad41-d863-4bd1-b13b-6830873d2218';
+            const RATING_DIMENSIONS = [
+                { name: 'Breakthrough Value', desc: 'Is the idea truly novel, or is it an incremental improvement?' },
+                { name: 'Problem-Solution Fit', desc: 'Does it solve a genuine, compelling pain point for a specific audience?' },
+                { name: 'Clarity', desc: 'Is the message conveyed clearly and concisely without excessive jargon?' },
+                { name: 'Economic Logic', desc: 'Are the financial projections, revenue streams, and cost structures realistic?' }
             ];
+            const RATING_TIERS = ['S', 'A', 'B', 'C', 'D', 'E', 'F'];
 
-            const prompts = [
-                { id: 0, title: 'Automation Excellence', description: 'How can we better complete automation code management and visualization across all engineering teams?', icon: 'AUTO', color: '#06b6d4' },
-                { id: 1, title: 'Charging Trust', description: 'How can we improve electric vehicle charging reliability and customer trust without increasing infrastructure costs?', icon: 'EV', color: '#f97316' },
-                { id: 2, title: 'Radical Transparency', description: 'How can we build a transparency-first data ecosystem that earns customer trust and differentiates our brand?', icon: 'DATA', color: '#10b981' },
-                { id: 3, title: 'Battery Longevity', description: 'How can software solutions optimize battery performance and extend lifespan while reducing range anxiety?', icon: 'BATT', color: '#8b5cf6' },
-                { id: 4, title: 'Smart AI Routing', description: 'How can AI-powered routing transform our service operations and customer support experience?', icon: 'AI', color: '#ec4899' }
-            ];
-
-            const quizzes = {
-                0: [
-                    { q: 'What is the biggest challenge in automation code management?', options: ['Scattered repositories', 'Too many developers', 'Lack of hardware', 'Excessive documentation'], correct: 0 },
-                    { q: 'Which benefit does visualization bring to CI/CD?', options: ['Faster compilation', 'Better pipeline observability', 'Reduced code size', 'More programming languages'], correct: 1 },
-                    { q: 'What does IaC stand for?', options: ['Internet as Code', 'Infrastructure as Code', 'Integration as Configuration', 'Intelligent automation control'], correct: 1 },
-                    { q: 'Which metric best measures automation success?', options: ['Lines of code', 'Deployment frequency and reliability', 'Number of developers', 'Server count'], correct: 1 },
-                    { q: 'What is a key goal of automated code review?', options: ['Replace all developers', 'Catch issues early and consistently', 'Write more code', 'Eliminate testing'], correct: 1 }
-                ],
-                1: [
-                    { q: 'What percentage of downtime did our charging network experience?', options: ['5%', '12%', '23%', '35%'], correct: 2 },
-                    { q: 'What is the primary driver of customer trust in EV charging?', options: ['Lowest price', 'Reliability and uptime', 'Fastest charging speed', 'Most locations'], correct: 1 },
-                    { q: 'How can IoT sensors help charging stations?', options: ['Increase electricity costs', 'Enable predictive maintenance', 'Reduce charging speed', 'Eliminate all downtime'], correct: 1 },
-                    { q: 'What uptime do competitors advertise?', options: ['95%', '97.5%', '99.5%', '100%'], correct: 2 },
-                    { q: 'Which approach best builds customer trust?', options: ['Hiding performance data', 'Transparent public dashboards', 'Lowering prices only', 'More advertising'], correct: 1 }
-                ],
-                2: [
-                    { q: 'What is the foundation of data transparency?', options: ['Collecting more data', 'Open communication about data use', 'Selling customer data', 'Deleting all data'], correct: 1 },
-                    { q: 'How can blockchain help our supply chain?', options: ['Faster deliveries', 'Prove ethical sourcing', 'Reduce battery weight', 'Increase horsepower'], correct: 1 },
-                    { q: 'What do customers most want regarding their data?', options: ['Free products', 'Control and visibility', 'Unlimited storage', 'Faster internet'], correct: 1 },
-                    { q: 'Which metric correlates with transparency-driven loyalty?', options: ['Page views', 'Customer retention rate', 'Server uptime', 'Code commits'], correct: 1 },
-                    { q: 'What is a key element of a customer data portal?', options: ['Complex navigation', 'Clear data visualization and controls', 'Hidden settings', 'Mandatory sharing'], correct: 1 }
-                ],
-                3: [
-                    { q: 'What accelerates battery degradation most?', options: ['Frequent charging', 'High temperatures', 'Using eco mode', 'Night driving'], correct: 1 },
-                    { q: 'How much range loss do cold-climate drivers report?', options: ['10%', '20%', '35%', '50%'], correct: 2 },
-                    { q: 'What can smart charging algorithms achieve?', options: ['Faster top speed', 'Extended battery life by 20%', 'More horsepower', 'Reduced tire wear'], correct: 1 },
-                    { q: 'What is second-life battery use?', options: ['Recycling immediately', 'Repurposing used EV batteries', 'Disposing in landfills', 'Melting down for parts'], correct: 1 },
-                    { q: 'Which feature helps reduce range anxiety?', options: ['Louder engine sound', 'Battery health coaching and preheating', 'Faster windshield wipers', 'More cup holders'], correct: 1 }
-                ],
-                4: [
-                    { q: 'What does AI service routing optimize?', options: ['Employee lunch breaks', 'Matching requests to the right technician', 'Office layout', 'Parking spaces'], correct: 1 },
-                    { q: 'How much fuel did smart navigation save in pilot?', options: ['5%', '10%', '18%', '30%'], correct: 2 },
-                    { q: 'What percentage of inquiries can AI chatbots triage?', options: ['30%', '50%', '70%', '95%'], correct: 2 },
-                    { q: 'What enables predictive service scheduling?', options: ['Customer surveys', 'Telemetry data from vehicles', 'Weather forecasts', 'Social media posts'], correct: 1 },
-                    { q: 'What is multi-modal route optimization?', options: ['Using only highways', 'Combining charging stops with delivery routes', 'Avoiding all cities', 'Using only back roads'], correct: 1 }
-                ]
-            };
+            const emailData = window.emailData || [];
+            const prompts = window.prompts || [];
+            const quizzes = window.quizzes || {};
 
             const teamDefinitions = [
                 { id: 'team_alpha', name: 'Team Alpha', color: '#06b6d4', avatarUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop&crop=face' },
@@ -282,6 +244,8 @@
             let currentTeamId = null;
             let gameState = null;
             let timers = {};
+            let expandedEmailIndex = null;
+            let quizAdvanceTimer = null;
 
             const connStatus = document.getElementById('connectionStatus');
             socket.on('connect', () => {
@@ -299,9 +263,54 @@
             socket.on('timer_started', ({ stageKey, endTime }) => {
                 if (!gameState) return;
                 if (!gameState.stageTimers) gameState.stageTimers = {};
-                gameState.stageTimers[stageKey] = { endTime, running: true };
+                gameState.stageTimers[stageKey] = { endTime, running: true, ended: false };
                 bindTimerDisplay(stageKey, endTime);
                 renderApp();
+            });
+            socket.on('rating_submission_updated', ({ teamId, submission }) => {
+                if (!gameState) return;
+                if (!gameState.ratingSubmissions) gameState.ratingSubmissions = {};
+                gameState.ratingSubmissions[teamId] = submission;
+
+                const status = document.getElementById('ratingSubmissionStatus');
+                if (status) {
+                    const submittedTeams = Object.keys(gameState.ratingSubmissions)
+                        .map(id => gameState.teams[id]?.name)
+                        .filter(Boolean)
+                        .map(name => `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;font-size:0.8rem;">${name} rated</span>`)
+                        .join(' ');
+                    status.innerHTML = submittedTeams;
+                }
+            });
+
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) return;
+                if (event.data?.type !== 'rating_submit') return;
+                if (!currentRoomId || !currentTeamId) return;
+
+                const payload = {
+                    ...event.data.payload,
+                    scorerTeamId: currentTeamId,
+                    scorerTeamName: getCurrentTeam()?.name || currentTeamId,
+                    totalsByTarget: mapRatingReceivedToTeamIds(event.data.payload?.scorerReceived || {})
+                };
+
+                socket.emit('submit_rating', { roomId: currentRoomId, teamId: currentTeamId, payload }, (res) => {
+                    if (!res?.success) {
+                        showToast(res?.error || 'Rating submission failed.');
+                        return;
+                    }
+                    if (!gameState.ratingSubmissions) gameState.ratingSubmissions = {};
+                    gameState.ratingSubmissions[currentTeamId] = payload;
+                    showToast('Rating JSON submitted to Google Sheet.');
+                    if (res.allRated) {
+                        gameState = res.gameState;
+                        renderApp();
+                    } else {
+                        const frame = document.querySelector('.rating-frame');
+                        if (frame) frame.style.opacity = '0.55';
+                    }
+                });
             });
 
             // ==================== Room actions ====================
@@ -346,7 +355,7 @@
             }
 
             function submitQuizAnswers(answers) {
-                const quiz = quizzes[gameState.selectedPromptIndex];
+                const quiz = getQuizForCurrentPrompt();
                 let score = 0;
                 const details = quiz.map((q, i) => {
                     const selectedIndex = answers[i];
@@ -362,6 +371,27 @@
                         isCorrect
                     };
                 });
+
+                if (gameState?.teams?.[currentTeamId]) {
+                    gameState.teams[currentTeamId].quizCompleted = true;
+                    gameState.teams[currentTeamId].quizScore = score;
+                    gameState.teams[currentTeamId].quizAnswers = answers;
+                    gameState.teams[currentTeamId].quizSubmission = {
+                        roundNumber: gameState.roundNumber,
+                        selectedPromptIndex: gameState.selectedPromptIndex,
+                        score,
+                        answers,
+                        details,
+                        submittedAt: Date.now()
+                    };
+                    renderApp();
+                }
+
+                clearTimeout(quizAdvanceTimer);
+                quizAdvanceTimer = setTimeout(() => {
+                    advanceTeamStage('mural');
+                }, 15000);
+
                 socket.emit('submit_quiz', {
                     roomId: currentRoomId,
                     teamId: currentTeamId,
@@ -369,12 +399,9 @@
                     answers,
                     details,
                     score
+                }, (res) => {
+                    if (!res?.success) showToast(res?.error || 'Quiz submission failed.');
                 });
-            }
-
-            function handlePDFUpload(file) {
-                if (!file.name.toLowerCase().endsWith('.pdf')) { showToast('Only PDF files are supported.'); return; }
-                socket.emit('pdf_uploaded', { roomId: currentRoomId, teamId: currentTeamId, fileInfo: { name: file.name, size: file.size, uploadedAt: Date.now() } });
             }
 
             function submitVotes(allocations) {
@@ -385,8 +412,11 @@
 
             function startStageTimer(stageKey, durationSeconds) {
                 const endTime = Date.now() + durationSeconds * 1000;
-                bindTimerDisplay(stageKey, endTime);
+                if (!gameState.stageTimers) gameState.stageTimers = {};
+                gameState.stageTimers[stageKey] = { endTime, running: true, ended: false };
+                renderApp();
                 socket.emit('start_timer', { roomId: currentRoomId, stageKey, endTime });
+                bindTimerDisplay(stageKey, endTime);
             }
 
             function bindTimerDisplay(stageKey, endTime) {
@@ -396,7 +426,14 @@
                     const idMap = { brainstorm: 'brainstormTimer', pitch_prep: 'pitchPrepTimer', pitch: 'pitchTimer' };
                     const el = document.getElementById(idMap[stageKey]);
                     if (el) el.textContent = formatTime(remaining);
-                    if (remaining <= 0) clearInterval(timers[stageKey]);
+                    if (remaining <= 0) {
+                        clearInterval(timers[stageKey]);
+                        if (gameState?.stageTimers?.[stageKey]) {
+                            gameState.stageTimers[stageKey].running = false;
+                            gameState.stageTimers[stageKey].ended = true;
+                        }
+                        renderApp();
+                    }
                 }, 200);
             }
 
@@ -432,6 +469,145 @@
             function allVotesSubmitted() { const teams = getAllTeams(); return teams.length > 1 && teams.every(t => gameState.votes[t.id]); }
             function getWinningTeam() { return getAllTeams().reduce((best, t) => (t.tokens || 0) > (best.tokens || 0) ? t : best, null); }
             function getQuizForCurrentPrompt() { return quizzes[gameState?.selectedPromptIndex] || []; }
+            function showEmailModal(index) {
+                const email = emailData[index];
+                if (!email) return;
+                const existing = document.getElementById('emailModalBackdrop');
+                if (existing) existing.remove();
+
+                const backdrop = document.createElement('div');
+                backdrop.className = 'email-modal-backdrop';
+                backdrop.id = 'emailModalBackdrop';
+                backdrop.innerHTML = `
+                    <div class="email-modal" role="dialog" aria-modal="true" aria-labelledby="emailModalTitle">
+                        <div class="email-modal-header">
+                            <div>
+                                <div class="email-modal-title" id="emailModalTitle">${email.subject}</div>
+                                <div class="email-modal-from">From: ${email.from}</div>
+                            </div>
+                            <button class="email-modal-close" type="button" aria-label="Close email detail">X</button>
+                        </div>
+                        <span class="keyword-tag">${email.keyword}</span>
+                        <div class="email-detail">
+                            <div class="email-modal-body">${email.excerpt}</div>
+                            <p style="margin-top:16px;"><strong>Suggested focus:</strong> Identify the root problem, affected stakeholders, and one measurable success metric.</p>
+                        </div>
+                    </div>
+                `;
+
+                const handleEscape = (event) => {
+                    if (event.key === 'Escape') closeModal();
+                };
+                const closeModal = () => {
+                    backdrop.remove();
+                    document.removeEventListener('keydown', handleEscape);
+                };
+                backdrop.addEventListener('click', (event) => {
+                    if (event.target === backdrop || event.target.closest('.email-modal-close')) closeModal();
+                });
+                document.addEventListener('keydown', handleEscape);
+                document.body.appendChild(backdrop);
+            }
+            function getRatingTierScores(opponentCount) {
+                const base = 250 / Math.max(1, opponentCount);
+                return {
+                    S: Math.floor(base * 1.0),
+                    A: Math.floor(base * 0.8),
+                    B: Math.floor(base * 0.65),
+                    C: Math.floor(base * 0.5),
+                    D: Math.floor(base * 0.35),
+                    E: Math.floor(base * 0.2),
+                    F: Math.max(1, Math.floor(base * 0.05))
+                };
+            }
+            function ensureCurrentRating() {
+                if (!gameState.ratings) gameState.ratings = {};
+                if (!gameState.ratings[currentTeamId]) {
+                    const rating = {};
+                    getOtherTeams().forEach(team => {
+                        rating[team.id] = {};
+                        RATING_DIMENSIONS.forEach((_, index) => {
+                            rating[team.id][index] = 'C';
+                        });
+                    });
+                    gameState.ratings[currentTeamId] = rating;
+                }
+                return gameState.ratings[currentTeamId];
+            }
+            function buildRatingPayload() {
+                const rating = ensureCurrentRating();
+                const otherTeams = getOtherTeams();
+                const tierScores = getRatingTierScores(otherTeams.length);
+                const totalsByTarget = {};
+                const dimensionsByTarget = {};
+
+                otherTeams.forEach(team => {
+                    totalsByTarget[team.id] = 0;
+                    dimensionsByTarget[team.id] = {};
+                    RATING_DIMENSIONS.forEach((dimension, index) => {
+                        const tier = rating[team.id]?.[index] || 'C';
+                        const points = tierScores[tier] || 0;
+                        dimensionsByTarget[team.id][dimension.name] = { tier, points };
+                        totalsByTarget[team.id] += points;
+                    });
+                });
+
+                return {
+                    scorerTeamId: currentTeamId,
+                    scorerTeamName: getCurrentTeam()?.name || currentTeamId,
+                    roundNumber: gameState.roundNumber,
+                    dimensions: RATING_DIMENSIONS,
+                    tierScores,
+                    ratings: rating,
+                    totalsByTarget,
+                    dimensionsByTarget,
+                    submittedAt: new Date().toISOString()
+                };
+            }
+            function getRatingResults() {
+                const teams = getAllTeams();
+                const totals = {};
+                teams.forEach(team => { totals[team.id] = 0; });
+                Object.values(gameState?.ratingSubmissions || {}).forEach(submission => {
+                    Object.entries(submission.totalsByTarget || {}).forEach(([teamId, points]) => {
+                        totals[teamId] = (totals[teamId] || 0) + Number(points || 0);
+                    });
+                });
+                return teams
+                    .map(team => ({ ...team, ratingScore: totals[team.id] || 0 }))
+                    .sort((a, b) => b.ratingScore - a.ratingScore);
+            }
+            function getRatingGroupForTeam(team) {
+                const id = team?.id || '';
+                if (id.includes('alpha')) return 'Alpha';
+                if (id.includes('beta')) return 'Beta';
+                if (id.includes('gamma')) return 'Gamma';
+                if (id.includes('delta')) return 'Delta';
+                return team?.name?.replace(/^Team\s+/i, '') || team?.id || '';
+            }
+            function mapRatingReceivedToTeamIds(received) {
+                const totals = {};
+                getAllTeams().forEach(team => {
+                    const group = getRatingGroupForTeam(team);
+                    totals[team.id] = Number(received?.[group]?.total || 0);
+                });
+                return totals;
+            }
+            function buildRatingFrameUrl() {
+                const active = getAllTeams().map(getRatingGroupForTeam).filter(Boolean).join(',');
+                const scorer = getRatingGroupForTeam(getCurrentTeam());
+                const params = new URLSearchParams({
+                    embed: '1',
+                    active,
+                    scorer,
+                    roomId: currentRoomId || '',
+                    teamId: currentTeamId || ''
+                });
+                return `rating.html?${params.toString()}`;
+            }
+            function getCurrentPitchingTeam() {
+                return gameState?.currentPitchingTeam ? gameState.teams[gameState.currentPitchingTeam] : null;
+            }
             function getTimerRemaining(stageKey) {
                 const t = gameState?.stageTimers?.[stageKey];
                 if (!t || !t.endTime) return null;
@@ -477,7 +653,6 @@
                     case 'prompt': html += renderPromptScreen(); break;
                     case 'quiz': html += renderQuizScreen(); break;
                     case 'mural': html += renderMuralScreen(); break;
-                    case 'upload': html += renderUploadScreen(); break;
                     case 'pitch_prep_done':
                         html += `<div class="card glow-purple" style="text-align:center;"><h2>Waiting for other teams to finish preparation...</h2></div>`; break;
                     case 'pitch_prep': html += renderPitchPrepScreen(); break;
@@ -496,16 +671,16 @@
             }
 
             function renderHeader(stage, team) {
-                const stages = ['login', 'prompt', 'quiz', 'mural', 'upload', 'pitch_prep', 'pitch', 'voting', 'results'];
+                const stages = ['login', 'prompt', 'quiz', 'mural', 'pitch_prep', 'pitch', 'voting', 'results'];
                 const currentIdx = stages.indexOf(stage);
-                const displayStages = ['prompt', 'quiz', 'mural', 'upload', 'pitch_prep', 'pitch', 'voting', 'results'];
+                const displayStages = ['prompt', 'quiz', 'mural', 'pitch_prep', 'pitch', 'voting', 'results'];
                 let dots = '';
                 displayStages.forEach((s, i) => {
                     const idx = stages.indexOf(s);
                     let cls = 'stage-dot';
                     if (idx < currentIdx) cls += ' done';
                     if (idx === currentIdx) cls += ' active';
-                    const icons = { prompt: 'P', quiz: 'Q', mural: 'M', upload: 'U', pitch_prep: 'T', pitch: 'P', voting: 'V', results: 'R' };
+                    const icons = { prompt: 'P', quiz: 'Q', mural: 'M', pitch_prep: 'T', pitch: 'P', voting: 'V', results: 'R' };
                     dots += `<span class="${cls}" title="${s}">${icons[s] || '-'}</span>`;
                     if (i < displayStages.length - 1) {
                         let conn = 'stage-connector';
@@ -580,31 +755,46 @@
             }
 
             function renderPromptScreen() {
-                const prompt = prompts[gameState.selectedPromptIndex];
+                const prompt = prompts[gameState.selectedPromptIndex] || prompts[0] || {
+                    title: 'Challenge',
+                    description: 'Review the challenge materials and prepare for the quiz.',
+                    introduction: '',
+                    icon: 'INFO',
+                    color: '#06b6d4'
+                };
                 const relevantEmails = emailData.filter(e => e.promptIndex === gameState.selectedPromptIndex);
-                const emailCards = emailData.map(e => {
+                const emailCards = emailData.map((e, index) => {
                     const isRelevant = e.promptIndex === gameState.selectedPromptIndex;
+                    const isExpanded = expandedEmailIndex === index;
+                    const preview = e.excerpt && e.excerpt.length > 220 ? `${e.excerpt.slice(0, 220)}...` : e.excerpt;
                     return `
-                    <div class="email-card" style="${isRelevant?'border-left:3px solid '+prompt.color+';':'opacity:0.6;'}">
+                    <button class="email-card ${isExpanded ? 'expanded' : ''}" data-email-index="${index}" style="${isRelevant?'border-left:3px solid '+prompt.color+';':'opacity:0.6;'}" type="button">
                         <div class="email-subject">${e.subject}</div>
                         <div class="email-from">From: ${e.from}</div>
-                        <div class="email-excerpt">${e.excerpt}</div>
+                        <div class="email-excerpt" style="white-space:pre-line;">${isExpanded ? e.excerpt : preview}</div>
                         <span class="keyword-tag">${e.keyword}</span>
                         ${isRelevant ? '<span style="font-size:0.7rem;color:'+prompt.color+';font-weight:700;margin-left:6px;">Matches Prompt</span>' : ''}
-                    </div>`;
+                        ${isExpanded ? `
+                            <div class="email-detail">
+                                <p><strong>Suggested focus:</strong> Identify the root problem, affected stakeholders, and one measurable success metric.</p>
+                            </div>
+                            <span class="email-card-hint">Click to collapse</span>
+                        ` : '<span class="email-card-hint">Click to read full email</span>'}
+                    </button>`;
                 }).join('');
 
                 return `
                 <div class="card glow-cyan">
                     <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=70" alt="AI Prompt" style="width:100%;max-width:100%;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
                     <h2 style="font-size:2rem;font-weight:800;">Step 1: Review the Challenge</h2>
-                    <p style="color:#64748b;margin-bottom:16px;">Below are <strong>25 company emails</strong> from the past quarter. The AI has analyzed keywords and identified <strong>5 key themes</strong>. For this test round, the selected prompt is:</p>
+                    <p style="color:#64748b;margin-bottom:16px;">Below are <strong>${emailData.length} company emails</strong> from the past quarter. The AI has analyzed keywords and identified <strong>${prompts.length} key themes</strong>. For this test round, the selected prompt is:</p>
                     <div style="background:linear-gradient(135deg,${prompt.color}15,${prompt.color}05);border:2px solid ${prompt.color}40;border-radius:20px;padding:24px;text-align:center;margin:20px 0;">
                         <span style="font-size:3rem;">${prompt.icon}</span>
                         <h3 style="font-size:1.8rem;font-weight:800;color:${prompt.color};margin:8px 0;">${prompt.title}</h3>
                         <p style="font-size:1.3rem;font-weight:600;color:#1e293b;">"${prompt.description}"</p>
+                        ${prompt.introduction ? `<p style="margin-top:14px;color:#475569;font-size:1rem;line-height:1.6;">${prompt.introduction}</p>` : ''}
                     </div>
-                    <h3 style="margin-top:20px;">All 25 Company Emails (5 themes x 5 emails each)</h3>
+                    <h3 style="margin-top:20px;">All ${emailData.length} Company Emails (${prompts.length} themes)</h3>
                     <div class="email-list">${emailCards}</div>
                     <div style="text-align:center;margin-top:24px;">
                         <button class="btn btn-primary" id="btnStartQuiz">Take Blitz Quiz</button>
@@ -616,15 +806,25 @@
                 const prompt = prompts[gameState.selectedPromptIndex];
                 const team = getCurrentTeam();
                 const alreadyDone = team && team.quizCompleted;
+                const submittedAnswers = Array.isArray(team?.quizAnswers) ? team.quizAnswers : [];
                 const quizHTML = quiz.map((q, i) => `
                     <div class="quiz-question ${alreadyDone?'answered':''}" data-question-index="${i}">
                         <strong>Q${i+1}:</strong> ${q.q}
                         <div class="quiz-options">
-                            ${q.options.map((opt, oi) => `
-                                <span class="quiz-option ${alreadyDone&&oi===q.correct?'selected':''}" data-q="${i}" data-o="${oi}">${opt}</span>
-                            `).join('')}
+                            ${q.options.map((opt, oi) => {
+                                const selected = alreadyDone && submittedAnswers[i] === oi;
+                                const isCorrect = alreadyDone && oi === q.correct;
+                                const isIncorrectSelection = selected && oi !== q.correct;
+                                const classes = [
+                                    'quiz-option',
+                                    selected ? 'selected' : '',
+                                    isCorrect ? 'correct-answer' : '',
+                                    isIncorrectSelection ? 'incorrect' : ''
+                                ].filter(Boolean).join(' ');
+                                return `<span class="${classes}" data-q="${i}" data-o="${oi}">${opt}</span>`;
+                            }).join('')}
                         </div>
-                        ${alreadyDone ? `<p style="color:#10b981;font-weight:700;margin-top:8px;">Correct answer: ${q.options[q.correct]}</p>` : ''}
+                        ${alreadyDone ? `<p style="color:${submittedAnswers[i] === q.correct ? '#10b981' : '#ef4444'};font-weight:700;margin-top:8px;">Your answer: ${q.options[submittedAnswers[i]] || 'No answer'} | Correct answer: ${q.options[q.correct]}</p>` : ''}
                     </div>
                 `).join('');
 
@@ -632,8 +832,8 @@
                 <div class="card glow-purple">
                     <img src="https://images.unsplash.com/photo-1606326608606-2370ce35e8c0?w=800&q=70" alt="Quiz" style="width:100%;max-width:100%;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:200px;" loading="lazy" onerror="this.style.display='none'">
                     <h2 style="font-size:2rem;font-weight:800;">Step 2: Blitz Quiz - "${prompt.title}"</h2>
-                    <p style="color:#64748b;">Answer these 5 rapid-fire questions to warm up your thinking on this topic.</p>
-                    ${alreadyDone ? `<p style="color:#10b981;font-weight:700;">Quiz completed. Score: ${team.quizScore}/5</p>` : '<p style="color:#f97316;">Select answers and submit when ready.</p>'}
+                    <p style="color:#64748b;">Answer these ${quiz.length} rapid-fire questions to warm up your thinking on this topic.</p>
+                    ${alreadyDone ? `<p style="color:#10b981;font-weight:700;">Quiz completed. Score: ${team.quizScore}/${quiz.length}. You will enter the Mural board automatically in 15 seconds, or you can continue now.</p>` : '<p style="color:#f97316;">Select answers and submit when ready.</p>'}
                     <div id="quizContainer">${quizHTML}</div>
                     <div style="text-align:center;margin-top:20px;">
                         ${!alreadyDone ? '<button class="btn btn-accent" id="btnSubmitQuiz">Submit Quiz Answers</button>' : ''}
@@ -653,34 +853,11 @@
                         ${remaining !== null && timerRunning ? `<div class="timer-display ${remaining<300?'warning':''}" id="brainstormTimer">${formatTime(remaining)}</div><p style="color:#64748b;">remaining</p>` : (timerEnded ? '<p style="color:#f97316;font-weight:800;">Time is up. Please wrap up.</p>' : '')}
                         ${!timerRunning && !timerEnded ? '<button class="btn btn-warning" id="btnStartBrainstormTimer">Start 60-Minute Timer</button>' : ''}
                     </div>
-                    <div class="iframe-container">
-                        <iframe src="${MURAL_URL}" allow="clipboard-read; clipboard-write" title="Mural Board" loading="lazy"></iframe>
-                        <div class="iframe-overlay"><span class="iframe-badge">Mural Board</span></div>
+                    <div class="iframe-container mural-container">
+                        <iframe src="${MURAL_URL}" title="Mural Board" loading="lazy" sandbox="allow-same-origin allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe>
                     </div>
                     <div style="text-align:center;margin-top:16px;">
                         <button class="btn btn-primary" id="btnFinishBrainstorm">Done Brainstorming - Next Step</button>
-                    </div>
-                </div>`;
-            }
-            function renderUploadScreen() {
-                const team = getCurrentTeam();
-                const hasUpload = team && team.uploadedPDF;
-                return `
-                <div class="card glow-green">
-                    <h2 style="font-size:2rem;font-weight:800;">Step 4: Upload Your Pitch PDF</h2>
-                    <p style="color:#64748b;">Upload your team's final pitch deck as a PDF file.</p>
-                    <div class="upload-zone" id="uploadZone">
-                        <span class="upload-icon">PDF</span>
-                        <p style="font-weight:700;font-size:1.1rem;">Drag & Drop your PDF here or click to browse</p>
-                        <p style="color:#94a3b8;">Only PDF files accepted</p>
-                        <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" style="display:none;">
-                    </div>
-                    ${hasUpload ? `<div style="text-align:center;margin-top:16px;padding:16px;background:#f0fdf4;border-radius:16px;">
-                        <p style="color:#10b981;font-weight:700;">PDF Uploaded: ${team.uploadedPDF.name}</p>
-                        <p style="color:#64748b;font-size:0.85rem;">${new Date(team.uploadedPDF.uploadedAt).toLocaleString()}</p>
-                    </div>` : '<p style="text-align:center;color:#f97316;margin-top:12px;">Please upload your PDF before proceeding.</p>'}
-                    <div style="text-align:center;margin-top:16px;">
-                        <button class="btn btn-primary" id="btnReadyForPitch" ${!hasUpload?'disabled':''}>Ready to Pitch</button>
                     </div>
                 </div>`;
             }
@@ -688,13 +865,16 @@
                 const remaining = getTimerRemaining('pitch_prep');
                 const timerRunning = gameState.stageTimers['pitch_prep']?.running;
                 const timerEnded = gameState.stageTimers['pitch_prep']?.ended;
+                const pitchingTeam = getCurrentPitchingTeam();
                 return `
                 <div class="card glow-orange" style="text-align:center;">
                     <img src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&q=70" alt="Preparation" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
                     <h2 style="font-size:2rem;font-weight:800;">Step 5: Pitch Preparation</h2>
-                    <p style="color:#64748b;font-size:1.2rem;">You have <strong>30 seconds</strong> to prepare before your 3-minute pitch!</p>
+                    <p style="color:#64748b;font-size:1.2rem;">${pitchingTeam ? `<strong style="color:${pitchingTeam.color};">${pitchingTeam.name}</strong> is preparing to pitch.` : 'The next team is preparing to pitch.'}</p>
+                    <p style="color:#64748b;font-size:1.1rem;">Each team gets <strong>30 seconds</strong> to prepare before a 3-minute pitch.</p>
                     <div class="timer-display ${remaining!==null&&remaining<10?'warning':''}" id="pitchPrepTimer" style="font-size:5rem;">${remaining!==null?formatTime(remaining):'0:30'}</div>
                     ${!timerRunning && !timerEnded ? '<button class="btn btn-warning" id="btnStartPrepTimer">Start 30-Second Prep</button>' : ''}
+                    ${!timerEnded ? '<button class="btn btn-outline" id="btnSkipPrep" style="margin-left:10px;">Skip Prep</button>' : ''}
                     ${timerEnded ? '<p style="color:#f97316;font-weight:800;font-size:1.2rem;">Prep time is over. Get ready to pitch.</p>' : ''}
                     ${timerEnded ? '<button class="btn btn-primary" id="btnStartPitch">Begin 3-Minute Pitch</button>' : ''}
                 </div>`;
@@ -703,70 +883,50 @@
                 const remaining = getTimerRemaining('pitch');
                 const timerRunning = gameState.stageTimers['pitch']?.running;
                 const timerEnded = gameState.stageTimers['pitch']?.ended;
+                const pitchingTeam = getCurrentPitchingTeam();
                 return `
                 <div class="card glow-pink" style="text-align:center;border-left:4px solid #ec4899;">
                     <img src="https://images.unsplash.com/photo-1559223607-a43c990c692c?w=800&q=70" alt="Pitch" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
                     <h2 style="font-size:2rem;font-weight:800;">Step 6: Pitch Your Solution</h2>
+                    <p style="color:#64748b;font-size:1.2rem;">${pitchingTeam ? `<strong style="color:${pitchingTeam.color};">${pitchingTeam.name}</strong> is pitching now.` : 'The current team is pitching now.'}</p>
                     <p style="color:#64748b;font-size:1.2rem;">Each team has <strong>3 minutes</strong> to present their solution.</p>
                     <div class="timer-display ${remaining!==null&&remaining<30?'warning':''}" id="pitchTimer" style="font-size:5rem;">${remaining!==null?formatTime(remaining):'3:00'}</div>
                     ${!timerRunning && !timerEnded ? '<button class="btn btn-accent" id="btnStartPitchTimer">Start 3-Minute Pitch Timer</button>' : ''}
+                    ${!timerEnded ? '<button class="btn btn-outline" id="btnSkipPitch" style="margin-left:10px;">Skip Pitch</button>' : ''}
                     ${timerEnded ? '<p style="color:#ec4899;font-weight:800;font-size:1.2rem;">Time is up.</p>' : ''}
-                    ${timerEnded ? '<button class="btn btn-primary" id="btnGoToVoting">Proceed to Voting</button>' : ''}
+                    ${timerEnded ? '<button class="btn btn-primary" id="btnFinishPitch">Finish Pitch / Next Team</button>' : ''}
                 </div>`;
             }
             function renderVotingScreen() {
-                const otherTeams = getOtherTeams();
-                const team = getCurrentTeam();
-                const hasVoted = team && gameState.votes[currentTeamId];
-                const remainingTokens = TOTAL_VOTE_TOKENS - (hasVoted ? Object.values(gameState.votes[currentTeamId])
-                    .reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0) : 0);
-
-                const voteRows = otherTeams.map(ot => {
-                    const currentVal = hasVoted && gameState.votes[currentTeamId][ot.id] ? gameState.votes[
-                        currentTeamId][ot.id] : 0;
-                    return `
-                    <div class="vote-row" data-team-id="${ot.id}">
-                        <span style="font-weight:700;min-width:100px;color:${ot.color};">${ot.name}</span>
-                        <input type="range" class="vote-slider" min="0" max="${TOTAL_VOTE_TOKENS}" value="${currentVal}" data-team="${ot.id}" ${hasVoted?'disabled':''}>
-                        <span class="vote-amount" id="voteVal_${ot.id}">${currentVal}</span>
-                        <span style="color:#64748b;">tokens</span>
-                    </div>`;
-                }).join('');
-
-                const votedTeams = Object.entries(gameState.votes).filter(([tid]) => tid !== currentTeamId).map(([
-                    tid, votes
-                ]) => {
-                    const t = gameState.teams[tid];
-                    return t ? `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;font-size:0.8rem;">${t.name} voted</span>` :
-                        '';
-                }).join(' ');
+                const hasSubmitted = Boolean(gameState?.ratingSubmissions?.[currentTeamId]);
+                const submittedTeams = Object.keys(gameState?.ratingSubmissions || {})
+                    .map(teamId => gameState.teams[teamId]?.name)
+                    .filter(Boolean)
+                    .map(name => `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;font-size:0.8rem;">${name} rated</span>`)
+                    .join(' ');
 
                 return `
                 <div class="card glow-purple">
-                    <img src="https://images.unsplash.com/photo-1553729459-afe8c8b58c7a?w=800&q=70" alt="Voting" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:200px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2rem;font-weight:800;">Step 7: Token Voting</h2>
-                    <p style="color:#64748b;">Distribute <strong>${TOTAL_VOTE_TOKENS} tokens</strong> among other teams. These represent company resources/investment. You cannot vote for your own team.</p>
-                    <div class="token-remaining">Remaining to allocate: <strong id="remainingTokens">${remainingTokens}</strong> / ${TOTAL_VOTE_TOKENS} tokens</div>
-                    ${hasVoted ? '<p style="color:#10b981;font-weight:700;text-align:center;">You have submitted your votes.</p>' : ''}
-                    <div id="voteRowsContainer">${voteRows}</div>
-                    <div style="text-align:center;margin-top:8px;color:#64748b;font-size:0.85rem;">${votedTeams}</div>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 7: Team Peer Review</h2>
+                    <p style="color:#64748b;">The scorer below is loaded directly from <strong>rating.html</strong>. It has been preconfigured for this room and the current team. Submit from inside the scorer to save the generated JSON to Google Sheets.</p>
+                    ${hasSubmitted ? '<p style="color:#10b981;font-weight:700;text-align:center;">You have submitted your rating.</p>' : ''}
+                    <iframe class="rating-frame" src="${buildRatingFrameUrl()}" title="Team Peer Review"></iframe>
+                    <div id="ratingSubmissionStatus" style="text-align:center;margin-top:8px;color:#64748b;font-size:0.85rem;">${submittedTeams}</div>
                     <div style="text-align:center;margin-top:16px;">
-                        ${!hasVoted ? '<button class="btn btn-accent" id="btnSubmitVotes">Submit Votes</button>' : ''}
-                        ${allVotesSubmitted() ? '<button class="btn btn-success" id="btnShowResults">Show Results</button>' : '<p style="color:#f97316;">Waiting for all teams to vote...</p>'}
+                        ${Object.keys(gameState?.ratingSubmissions || {}).length === getAllTeams().length ? '<button class="btn btn-success" id="btnShowResults">Show Results</button>' : '<p style="color:#f97316;">Waiting for all teams to submit ratings...</p>'}
                     </div>
                 </div>`;
             }
             function renderResultsScreen() {
-                const winner = getWinningTeam();
-                const allTeams = getAllTeams().sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
+                const allTeams = getRatingResults();
+                const winner = allTeams[0] || null;
                 const podiumLabels = ['1st', '2nd', '3rd', '4th'];
                 const teamCards = allTeams.map((t, i) => `
                     <div class="card ${i===0?'glow-orange':''}" style="text-align:center;${i===0?'border:3px solid #eab308;box-shadow:0 0 30px rgba(234,179,8,0.3);':''}">
                         ${i===0 ? '<div class="winner-badge">WINNER</div>' : ''}
                         <h3 style="font-size:1.5rem;font-weight:800;">${podiumLabels[i]||''} ${t.name}</h3>
-                        <div style="font-size:2.5rem;font-weight:900;color:${t.color};">${t.tokens||0}</div>
-                        <p style="color:#64748b;">Tokens Earned</p>
-                        <p style="color:#64748b;">Total All-Time: ${t.totalTokensEarned||0} tokens</p>
+                        <div style="font-size:2.5rem;font-weight:900;color:${t.color};">${t.ratingScore||0}</div>
+                        <p style="color:#64748b;">Peer Review Tokens</p>
                     </div>
                 `).join('');
 
@@ -785,7 +945,7 @@
                     <div style="background:#fff;border-radius:16px;padding:14px;text-align:center;border:2px solid ${t.color}30;box-shadow:var(--shadow-sm);">
                         <strong style="color:${t.color};">${t.name}</strong>
                         <div style="font-weight:800;">${t.tokens||0} tokens</div>
-                        <div style="font-size:0.75rem;color:#64748b;">Quiz: ${t.quizCompleted ? 'Done' : 'Wait'} | PDF: ${t.uploadedPDF ? 'Done' : 'Wait'} | Voted: ${gameState.votes[t.id] ? 'Done' : 'Wait'}</div>
+                        <div style="font-size:0.75rem;color:#64748b;">Quiz: ${t.quizCompleted ? 'Done' : 'Wait'} | Voted: ${gameState.votes[t.id] ? 'Done' : 'Wait'}</div>
                     </div>
                 `).join('');
                 return `
@@ -819,6 +979,13 @@
 
                 // Stage-specific button events use advanceTeamStage for team progress.
                 if (stage === 'prompt') {
+                    document.querySelectorAll('.email-card').forEach(card => {
+                        card.addEventListener('click', function() {
+                            const index = Number(this.getAttribute('data-email-index'));
+                            showEmailModal(index);
+                        });
+                    });
+
                     const btnQuiz = document.getElementById('btnStartQuiz');
                     if (btnQuiz) btnQuiz.addEventListener('click', () => advanceStage('quiz'));
                 }
@@ -856,19 +1023,27 @@
                     });
 
                     const btnGoToMural = document.getElementById('btnGoToMural');
-                    if (btnGoToMural) btnGoToMural.addEventListener('click', () => advanceTeamStage('mural'));
+                    if (btnGoToMural) btnGoToMural.addEventListener('click', () => {
+                        clearTimeout(quizAdvanceTimer);
+                        advanceTeamStage('mural');
+                    });
                 }
                 if (stage === 'mural') {
+                    const btnTimer = document.getElementById('btnStartBrainstormTimer');
+                    if (btnTimer) btnTimer.addEventListener('click', () => startStageTimer('brainstorm', BRAINSTORM_MINUTES * 60));
+
                     const btnFinish = document.getElementById('btnFinishBrainstorm');
-                    if (btnFinish) btnFinish.addEventListener('click', () => advanceTeamStage('upload'));
-                    // Timer startup logic is preserved.
-                }
-                if (stage === 'upload') {
-                    const btnReady = document.getElementById('btnReadyForPitch');
-                    if (btnReady) btnReady.addEventListener('click', () => advanceTeamStage('pitch_prep_done'));
-                    // Upload logic is preserved.
+                    if (btnFinish) btnFinish.addEventListener('click', () => advanceTeamStage('pitch_prep_done'));
                 }
                 if (stage === 'pitch_prep') {
+                    const btnStartPrepTimer = document.getElementById('btnStartPrepTimer');
+                    if (btnStartPrepTimer) btnStartPrepTimer.addEventListener('click', () => startStageTimer('pitch_prep', PITCH_PREP_SECONDS));
+
+                    const btnStartPitch = document.getElementById('btnStartPitch');
+                    if (btnStartPitch) btnStartPitch.addEventListener('click', () => {
+                        socket.emit('begin_pitch', { roomId: currentRoomId });
+                    });
+
                     // Preparation stage skip button.
                     const btnSkip = document.getElementById('btnSkipPrep');
                     if (btnSkip) btnSkip.addEventListener('click', () => {
@@ -876,13 +1051,30 @@
                     });
                 }
                 if (stage === 'pitch') {
+                    const btnStartPitchTimer = document.getElementById('btnStartPitchTimer');
+                    if (btnStartPitchTimer) btnStartPitchTimer.addEventListener('click', () => startStageTimer('pitch', PITCH_SECONDS));
+
+                    const btnFinishPitch = document.getElementById('btnFinishPitch');
+                    if (btnFinishPitch) btnFinishPitch.addEventListener('click', () => {
+                        socket.emit('complete_pitch', { roomId: currentRoomId });
+                    });
+
                     // Pitch stage skip button.
                     const btnSkip = document.getElementById('btnSkipPitch');
                     if (btnSkip) btnSkip.addEventListener('click', () => {
                         socket.emit('skip_pitch', { roomId: currentRoomId, teamId: currentTeamId });
                     });
                 }
-                // Voting and results bindings are handled elsewhere.
+                if (stage === 'voting') {
+                    const btnShowResults = document.getElementById('btnShowResults');
+                    if (btnShowResults) btnShowResults.addEventListener('click', () => advanceStage('results'));
+                }
+                if (stage === 'results') {
+                    const btnNewRound = document.getElementById('btnNewRound');
+                    if (btnNewRound) btnNewRound.addEventListener('click', () => {
+                        window.location.href = '/';
+                    });
+                }
             }
 
             window.createRoom = createRoom;
