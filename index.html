@@ -6,10 +6,10 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Brainstorm Arena – Multi‑Room Innovation Competition</title>
+    <title>Brainstorm Arena - Multi-Room Innovation Competition</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        /* ========== 完整 CSS（与之前相同，未省略） ========== */
+        /* ========== Core styles ========== */
         :root {
             --bg: #f8fafc;
             --card-bg: #ffffff;
@@ -149,6 +149,8 @@
         .quiz-option { padding: 10px 18px; border-radius: 30px; cursor: pointer; border: 2px solid #e2e8f0; background: #fff; font-weight: 600; margin-right: 8px; }
         .quiz-option:hover { border-color: #06b6d4; }
         .quiz-option.selected { background: #06b6d4; color: #fff; border-color: #06b6d4; }
+        .quiz-option.correct { background: #10b981; color: #fff; border-color: #10b981; }
+        .quiz-option.incorrect { background: #ef4444; color: #fff; border-color: #ef4444; }
 
         .timer-display { font-size: 4rem; font-weight: 900; text-align: center; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .timer-display.warning { background: var(--gradient-3); animation: blink 1s infinite; }
@@ -182,7 +184,7 @@
     <div id="toastContainer"></div>
     <div id="confettiContainer" class="confetti"></div>
     <div class="container" id="appContainer"></div>
-    <div id="connectionStatus" class="connection-status disconnected">🟡 连接中...</div>
+    <div id="connectionStatus" class="connection-status disconnected">Connecting...</div>
 
     <script>
         (function() {
@@ -192,7 +194,6 @@
             const PITCH_PREP_SECONDS = 30;
             const PITCH_SECONDS = 180;
             const MURAL_URL = 'https://app.mural.co/t/digitalisierungprojektmanage7607/m/digitalisierungprojektmanage7607/1728845607134/48a1c7f1c4debba2900dd396a14fefcf66b84bf7';
-            const CANVA_URL = 'https://www.canva.com/';
 
             const emailData = [
                 { subject: 'Re: Automation pipeline chaos', from: 'dev.lead@evcompany.com', excerpt: 'Our CI/CD automation scripts are scattered across 12 repos...', keyword: 'automation', promptIndex: 0 },
@@ -223,11 +224,11 @@
             ];
 
             const prompts = [
-                { id: 0, title: 'Automation Excellence', description: 'How can we better complete automation code management and visualization across all engineering teams?', icon: '🤖', color: '#06b6d4' },
-                { id: 1, title: 'Charging Trust', description: 'How can we improve electric vehicle charging reliability and customer trust without increasing infrastructure costs?', icon: '⚡', color: '#f97316' },
-                { id: 2, title: 'Radical Transparency', description: 'How can we build a transparency-first data ecosystem that earns customer trust and differentiates our brand?', icon: '🔍', color: '#10b981' },
-                { id: 3, title: 'Battery Longevity', description: 'How can software solutions optimize battery performance and extend lifespan while reducing range anxiety?', icon: '🔋', color: '#8b5cf6' },
-                { id: 4, title: 'Smart AI Routing', description: 'How can AI-powered routing transform our service operations and customer support experience?', icon: '🧭', color: '#ec4899' }
+                { id: 0, title: 'Automation Excellence', description: 'How can we better complete automation code management and visualization across all engineering teams?', icon: 'AUTO', color: '#06b6d4' },
+                { id: 1, title: 'Charging Trust', description: 'How can we improve electric vehicle charging reliability and customer trust without increasing infrastructure costs?', icon: 'EV', color: '#f97316' },
+                { id: 2, title: 'Radical Transparency', description: 'How can we build a transparency-first data ecosystem that earns customer trust and differentiates our brand?', icon: 'DATA', color: '#10b981' },
+                { id: 3, title: 'Battery Longevity', description: 'How can software solutions optimize battery performance and extend lifespan while reducing range anxiety?', icon: 'BATT', color: '#8b5cf6' },
+                { id: 4, title: 'Smart AI Routing', description: 'How can AI-powered routing transform our service operations and customer support experience?', icon: 'AI', color: '#ec4899' }
             ];
 
             const quizzes = {
@@ -275,7 +276,7 @@
                 { id: 'team_delta', name: 'Team Delta', color: '#10b981', avatarUrl: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&h=150&fit=crop&crop=face' }
             ];
 
-            // ==================== Socket.IO 初始化 ====================
+            // ==================== Socket.IO setup ====================
             const socket = io();
             let currentRoomId = null;
             let currentTeamId = null;
@@ -285,11 +286,11 @@
             const connStatus = document.getElementById('connectionStatus');
             socket.on('connect', () => {
                 connStatus.className = 'connection-status connected';
-                connStatus.textContent = '🟢 Live';
+                connStatus.textContent = 'Live';
             });
             socket.on('disconnect', () => {
                 connStatus.className = 'connection-status disconnected';
-                connStatus.textContent = '🔴 连接断开';
+                connStatus.textContent = 'Disconnected';
             });
             socket.on('state_updated', (newState) => {
                 gameState = newState;
@@ -303,19 +304,19 @@
                 renderApp();
             });
 
-            // ==================== 房间操作 ====================
+            // ==================== Room actions ====================
             window.createRoom = function() {
                 socket.emit('create_room', {}, (res) => {
                     if (res.success) {
                         currentRoomId = res.roomId;
                         gameState = res.gameState;
                         if (navigator.clipboard) {
-                            navigator.clipboard.writeText(currentRoomId).then(() => showToast('✅ 房间码已复制: ' + currentRoomId)).catch(() => showToast('🏠 房间已创建: ' + currentRoomId));
+                            navigator.clipboard.writeText(currentRoomId).then(() => showToast('Room code copied: ' + currentRoomId)).catch(() => showToast('Room created: ' + currentRoomId));
                         } else {
-                            showToast('🏠 房间已创建: ' + currentRoomId + ' （请手动复制）');
+                            showToast('Room created: ' + currentRoomId + ' (please copy manually)');
                         }
                         renderApp();
-                    } else { showToast('❌ ' + res.error); }
+                    } else { showToast('Error: ' + res.error); }
                 });
             };
             window.joinRoom = function(code) {
@@ -324,12 +325,12 @@
                         currentRoomId = res.roomId;
                         gameState = res.gameState;
                         renderApp();
-                        showToast('🚪 已加入 ' + currentRoomId);
-                    } else { showToast('❌ ' + res.error); }
+                        showToast('Joined room: ' + currentRoomId);
+                    } else { showToast('Error: ' + res.error); }
                 });
             };
 
-            // ==================== 游戏动作 ====================
+            // ==================== Game actions ====================
             function loginTeam(teamId) {
                 const def = teamDefinitions.find(t => t.id === teamId);
                 socket.emit('team_login', { roomId: currentRoomId, teamId, teamData: { name: def.name, color: def.color, avatarUrl: def.avatarUrl } });
@@ -347,18 +348,38 @@
             function submitQuizAnswers(answers) {
                 const quiz = quizzes[gameState.selectedPromptIndex];
                 let score = 0;
-                quiz.forEach((q, i) => { if (answers[i] === q.correct) score++; });
-                socket.emit('submit_quiz', { roomId: currentRoomId, teamId: currentTeamId, score });
+                const details = quiz.map((q, i) => {
+                    const selectedIndex = answers[i];
+                    const isCorrect = selectedIndex === q.correct;
+                    if (isCorrect) score++;
+                    return {
+                        questionIndex: i,
+                        question: q.q,
+                        selectedIndex,
+                        selectedAnswer: q.options[selectedIndex],
+                        correctIndex: q.correct,
+                        correctAnswer: q.options[q.correct],
+                        isCorrect
+                    };
+                });
+                socket.emit('submit_quiz', {
+                    roomId: currentRoomId,
+                    teamId: currentTeamId,
+                    selectedPromptIndex: gameState.selectedPromptIndex,
+                    answers,
+                    details,
+                    score
+                });
             }
 
             function handlePDFUpload(file) {
-                if (!file.name.toLowerCase().endsWith('.pdf')) { showToast('⚠️ 仅支持 PDF'); return; }
+                if (!file.name.toLowerCase().endsWith('.pdf')) { showToast('Only PDF files are supported.'); return; }
                 socket.emit('pdf_uploaded', { roomId: currentRoomId, teamId: currentTeamId, fileInfo: { name: file.name, size: file.size, uploadedAt: Date.now() } });
             }
 
             function submitVotes(allocations) {
                 const total = Object.values(allocations).reduce((a, b) => a + b, 0);
-                if (Math.abs(total - TOTAL_VOTE_TOKENS) > 1) { showToast('⚠️ 总数必须为 1000'); return; }
+                if (Math.abs(total - TOTAL_VOTE_TOKENS) > 1) { showToast('Total allocation must equal 1000 tokens.'); return; }
                 socket.emit('submit_votes', { roomId: currentRoomId, teamId: currentTeamId, allocations });
             }
 
@@ -379,7 +400,7 @@
                 }, 200);
             }
 
-            // ==================== 辅助函数 ====================
+            // ==================== Helper functions ====================
             function formatTime(s) { const m = Math.floor(s / 60), sec = s % 60; return m + ':' + sec.toString().padStart(2, '0'); }
             function showToast(msg, duration = 3000) {
                 const container = document.getElementById('toastContainer');
@@ -422,17 +443,17 @@
                 return gameState?.teamStages?.[currentTeamId] || '';
             }
 
-            // ==================== 渲染引擎 ====================
+            // ==================== Render engine ====================
             function renderApp() {
                 if (!gameState) {
                     document.getElementById('appContainer').innerHTML = `
                         <div class="card glow-cyan" style="text-align:center; margin-top:60px;">
-                            <h2>🔌 加入或创建游戏房间</h2>
+                            <h2>Join or Create a Game Room</h2>
                             <div style="margin:20px;">
-                                <button class="btn btn-primary" onclick="createRoom()">🏠 创建新房间</button>
-                                <div style="margin:20px;">或</div>
-                                <input id="joinRoomInput" placeholder="输入房间代码" style="padding:12px;border-radius:12px;border:2px solid #e2e8f0;width:200px;text-transform:uppercase;">
-                                <button class="btn btn-accent" onclick="joinRoom(document.getElementById('joinRoomInput').value)">🚪 加入房间</button>
+                                <button class="btn btn-primary" onclick="createRoom()">Create New Room</button>
+                                <div style="margin:20px;">or</div>
+                                <input id="joinRoomInput" placeholder="Enter room code" style="padding:12px;border-radius:12px;border:2px solid #e2e8f0;width:200px;text-transform:uppercase;">
+                                <button class="btn btn-accent" onclick="joinRoom(document.getElementById('joinRoomInput').value)">Join Room</button>
                             </div>
                         </div>`;
                     return;
@@ -456,10 +477,9 @@
                     case 'prompt': html += renderPromptScreen(); break;
                     case 'quiz': html += renderQuizScreen(); break;
                     case 'mural': html += renderMuralScreen(); break;
-                    case 'canva': html += renderCanvaScreen(); break;
                     case 'upload': html += renderUploadScreen(); break;
                     case 'pitch_prep_done':
-                        html += `<div class="card glow-purple" style="text-align:center;"><h2>⏳ 等待其他团队完成准备...</h2></div>`; break;
+                        html += `<div class="card glow-purple" style="text-align:center;"><h2>Waiting for other teams to finish preparation...</h2></div>`; break;
                     case 'pitch_prep': html += renderPitchPrepScreen(); break;
                     case 'pitch': html += renderPitchScreen(); break;
                     case 'voting': html += renderVotingScreen(); break;
@@ -476,17 +496,17 @@
             }
 
             function renderHeader(stage, team) {
-                const stages = ['login', 'prompt', 'quiz', 'mural', 'canva', 'upload', 'pitch_prep', 'pitch', 'voting', 'results'];
+                const stages = ['login', 'prompt', 'quiz', 'mural', 'upload', 'pitch_prep', 'pitch', 'voting', 'results'];
                 const currentIdx = stages.indexOf(stage);
-                const displayStages = ['prompt', 'quiz', 'mural', 'canva', 'upload', 'pitch_prep', 'pitch', 'voting', 'results'];
+                const displayStages = ['prompt', 'quiz', 'mural', 'upload', 'pitch_prep', 'pitch', 'voting', 'results'];
                 let dots = '';
                 displayStages.forEach((s, i) => {
                     const idx = stages.indexOf(s);
                     let cls = 'stage-dot';
                     if (idx < currentIdx) cls += ' done';
                     if (idx === currentIdx) cls += ' active';
-                    const icons = { prompt: '📧', quiz: '❓', mural: '🎨', canva: '📊', upload: '📤', pitch_prep: '⏳', pitch: '🎤', voting: '💰', results: '🏆' };
-                    dots += `<span class="${cls}" title="${s}">${icons[s] || '•'}</span>`;
+                    const icons = { prompt: 'P', quiz: 'Q', mural: 'M', upload: 'U', pitch_prep: 'T', pitch: 'P', voting: 'V', results: 'R' };
+                    dots += `<span class="${cls}" title="${s}">${icons[s] || '-'}</span>`;
                     if (i < displayStages.length - 1) {
                         let conn = 'stage-connector';
                         if (idx < currentIdx) conn += ' done';
@@ -495,13 +515,13 @@
                 });
                 return `
                 <div class="app-header">
-                    <div class="logo"><span class="icon">⚡</span> Brainstorm Arena</div>
+                    <div class="logo"><span class="icon">BA</span> Brainstorm Arena</div>
                     <div class="stage-indicator">${dots}</div>
                     <div style="display:flex;align-items:center;gap:12px;">
-                        ${team ? `<span style="font-weight:700;color:${team.color};background:${team.color}15;padding:6px 16px;border-radius:20px;">👤 ${team.name}</span>` : ''}
-                        ${team ? `<span style="font-weight:700;color:#8b5cf6;">💰 ${team.totalTokensEarned||0} Tokens</span>` : ''}
+                        ${team ? `<span style="font-weight:700;color:${team.color};background:${team.color}15;padding:6px 16px;border-radius:20px;">${team.name}</span>` : ''}
+                        ${team ? `<span style="font-weight:700;color:#8b5cf6;">${team.totalTokensEarned||0} Tokens</span>` : ''}
                         <span>Round ${gameState.roundNumber}</span>
-                        ${currentRoomId ? `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;">🏷️ ${currentRoomId}</span>` : ''}
+                        ${currentRoomId ? `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;">Room ${currentRoomId}</span>` : ''}
                     </div>
                 </div>`;
             }
@@ -514,10 +534,10 @@
 
                 const roomInfoHtml = currentRoomId ? `
                     <div style="background:#f0fdff;border:2px solid #06b6d4;border-radius:20px;padding:16px;margin-bottom:24px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
-                        <span style="font-weight:700;font-size:1.2rem;">🏷️ 你的房间码:</span>
+                        <span style="font-weight:700;font-size:1.2rem;">Your Room Code</span>
                         <span style="font-size:2rem;font-weight:900;color:#06b6d4;letter-spacing:2px;">${currentRoomId}</span>
-                        <button class="btn btn-sm btn-outline" id="btnCopyRoom" style="padding:8px 18px;" title="复制房间码">📋 复制</button>
-                        <span style="color:#10b981;font-weight:600;">✅ 已加入房间</span>
+                        <button class="btn btn-sm btn-outline" id="btnCopyRoom" style="padding:8px 18px;" title="Copy room code">Copy</button>
+                        <span style="color:#10b981;font-weight:600;">Room joined</span>
                     </div>
                 ` : '';
 
@@ -529,22 +549,22 @@
                         <img src="${def.avatarUrl}" alt="${def.name}" class="team-avatar" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1531482615713-2afd69097998?w=150&h=150&fit=crop&crop=face'">
                         <div class="team-name">${def.name}</div>
                         <div class="team-members">3-5 members</div>
-                        <div style="color:${def.color};font-weight:700;margin-top:6px;">${isTaken&&!isSelected?'🔒 Joined':'🔓 Available'}</div>
-                        ${isSelected ? '<div style="color:#06b6d4;font-weight:700;margin-top:4px;">✅ Selected</div>' : ''}
+                        <div style="color:${def.color};font-weight:700;margin-top:6px;">${isTaken&&!isSelected?'Joined':'Available'}</div>
+                        ${isSelected ? '<div style="color:#06b6d4;font-weight:700;margin-top:4px;">Selected</div>' : ''}
                     </div>`;
                 }).join('');
 
                 let actionHtml = '';
                 if (currentTeam) {
                     if (canStart && isHost) {
-                        actionHtml = `<button class="btn btn-success" id="btnStartGame" style="margin-top:24px;font-size:1.1rem;padding:16px 36px;">🚀 开始游戏（当前 ${teamsForLogin.length} 个团队）</button>`;
+                        actionHtml = `<button class="btn btn-success" id="btnStartGame" style="margin-top:24px;font-size:1.1rem;padding:16px 36px;">Start Game (${teamsForLogin.length} teams joined)</button>`;
                     } else if (!canStart) {
-                        actionHtml = `<p style="color:#f97316;margin-top:12px;">等待至少 2 个团队加入...</p>`;
+                        actionHtml = `<p style="color:#f97316;margin-top:12px;">Waiting for at least 2 teams to join...</p>`;
                     } else {
-                        actionHtml = `<p style="color:#64748b;margin-top:12px;">等待房主开始游戏...</p>`;
+                        actionHtml = `<p style="color:#64748b;margin-top:12px;">Waiting for the host to start the game...</p>`;
                     }
                 } else {
-                    actionHtml = `<button class="btn btn-primary" id="btnJoinGame" style="margin-top:24px;font-size:1.1rem;padding:16px 36px;" ${!currentTeamId?'disabled':''}>🚀 Join Game & Start</button>`;
+                    actionHtml = `<button class="btn btn-primary" id="btnJoinGame" style="margin-top:24px;font-size:1.1rem;padding:16px 36px;" ${!currentTeamId?'disabled':''}>Join Game</button>`;
                 }
 
                 return `
@@ -559,7 +579,6 @@
                 </div>`;
             }
 
-            // 各渲染函数与之前相同，只需保留完全一样的实现（此处省略具体内容以保证篇幅，实际文件需将原函数完整保留）
             function renderPromptScreen() {
                 const prompt = prompts[gameState.selectedPromptIndex];
                 const relevantEmails = emailData.filter(e => e.promptIndex === gameState.selectedPromptIndex);
@@ -571,24 +590,24 @@
                         <div class="email-from">From: ${e.from}</div>
                         <div class="email-excerpt">${e.excerpt}</div>
                         <span class="keyword-tag">${e.keyword}</span>
-                        ${isRelevant ? '<span style="font-size:0.7rem;color:'+prompt.color+';font-weight:700;margin-left:6px;">🔗 Matches Prompt</span>' : ''}
+                        ${isRelevant ? '<span style="font-size:0.7rem;color:'+prompt.color+';font-weight:700;margin-left:6px;">Matches Prompt</span>' : ''}
                     </div>`;
                 }).join('');
 
                 return `
                 <div class="card glow-cyan">
                     <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=70" alt="AI Prompt" style="width:100%;max-width:100%;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2rem;font-weight:800;">📬 Step 1: Review the Challenge</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 1: Review the Challenge</h2>
                     <p style="color:#64748b;margin-bottom:16px;">Below are <strong>25 company emails</strong> from the past quarter. The AI has analyzed keywords and identified <strong>5 key themes</strong>. For this test round, the selected prompt is:</p>
                     <div style="background:linear-gradient(135deg,${prompt.color}15,${prompt.color}05);border:2px solid ${prompt.color}40;border-radius:20px;padding:24px;text-align:center;margin:20px 0;">
                         <span style="font-size:3rem;">${prompt.icon}</span>
                         <h3 style="font-size:1.8rem;font-weight:800;color:${prompt.color};margin:8px 0;">${prompt.title}</h3>
                         <p style="font-size:1.3rem;font-weight:600;color:#1e293b;">"${prompt.description}"</p>
                     </div>
-                    <h3 style="margin-top:20px;">📧 All 25 Company Emails (5 themes × 5 emails each)</h3>
+                    <h3 style="margin-top:20px;">All 25 Company Emails (5 themes x 5 emails each)</h3>
                     <div class="email-list">${emailCards}</div>
                     <div style="text-align:center;margin-top:24px;">
-                        <button class="btn btn-primary" id="btnStartQuiz">🧠 Take Blitz Quiz →</button>
+                        <button class="btn btn-primary" id="btnStartQuiz">Take Blitz Quiz</button>
                     </div>
                 </div>`;
             }
@@ -605,20 +624,20 @@
                                 <span class="quiz-option ${alreadyDone&&oi===q.correct?'selected':''}" data-q="${i}" data-o="${oi}">${opt}</span>
                             `).join('')}
                         </div>
-                        ${alreadyDone ? `<p style="color:#10b981;font-weight:700;margin-top:8px;">✅ Correct answer: ${q.options[q.correct]}</p>` : ''}
+                        ${alreadyDone ? `<p style="color:#10b981;font-weight:700;margin-top:8px;">Correct answer: ${q.options[q.correct]}</p>` : ''}
                     </div>
                 `).join('');
 
                 return `
                 <div class="card glow-purple">
                     <img src="https://images.unsplash.com/photo-1606326608606-2370ce35e8c0?w=800&q=70" alt="Quiz" style="width:100%;max-width:100%;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:200px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2rem;font-weight:800;">🧠 Step 2: Blitz Quiz — "${prompt.title}"</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 2: Blitz Quiz - "${prompt.title}"</h2>
                     <p style="color:#64748b;">Answer these 5 rapid-fire questions to warm up your thinking on this topic.</p>
-                    ${alreadyDone ? `<p style="color:#10b981;font-weight:700;">✅ Quiz completed! Score: ${team.quizScore}/5</p>` : '<p style="color:#f97316;">Select answers and submit when ready.</p>'}
+                    ${alreadyDone ? `<p style="color:#10b981;font-weight:700;">Quiz completed. Score: ${team.quizScore}/5</p>` : '<p style="color:#f97316;">Select answers and submit when ready.</p>'}
                     <div id="quizContainer">${quizHTML}</div>
                     <div style="text-align:center;margin-top:20px;">
-                        ${!alreadyDone ? '<button class="btn btn-accent" id="btnSubmitQuiz">✅ Submit Quiz Answers</button>' : ''}
-                        <button class="btn btn-primary" id="btnGoToMural" style="margin-left:10px;">🎨 Enter Brainstorm Board →</button>
+                        ${!alreadyDone ? '<button class="btn btn-accent" id="btnSubmitQuiz">Submit Quiz Answers</button>' : ''}
+                        <button class="btn btn-primary" id="btnGoToMural" style="margin-left:10px;">Enter Brainstorm Board</button>
                     </div>
                 </div>`;
             }
@@ -628,32 +647,18 @@
                 const timerEnded = gameState.stageTimers['brainstorm']?.ended;
                 return `
                 <div class="card glow-orange">
-                    <h2 style="font-size:2rem;font-weight:800;">🎨 Step 3: Brainstorm on Mural Board</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 3: Brainstorm on Mural Board</h2>
                     <p style="color:#64748b;">Collaborate with your team using the embedded Mural board below. You have <strong>${BRAINSTORM_MINUTES} minutes</strong>.</p>
                     <div style="text-align:center;margin:16px 0;">
-                        ${remaining !== null && timerRunning ? `<div class="timer-display ${remaining<300?'warning':''}" id="brainstormTimer">${formatTime(remaining)}</div><p style="color:#64748b;">remaining</p>` : (timerEnded ? '<p style="color:#f97316;font-weight:800;">⏰ Time is up! Please wrap up.</p>' : '')}
-                        ${!timerRunning && !timerEnded ? '<button class="btn btn-warning" id="btnStartBrainstormTimer">⏱️ Start 60-Minute Timer</button>' : ''}
+                        ${remaining !== null && timerRunning ? `<div class="timer-display ${remaining<300?'warning':''}" id="brainstormTimer">${formatTime(remaining)}</div><p style="color:#64748b;">remaining</p>` : (timerEnded ? '<p style="color:#f97316;font-weight:800;">Time is up. Please wrap up.</p>' : '')}
+                        ${!timerRunning && !timerEnded ? '<button class="btn btn-warning" id="btnStartBrainstormTimer">Start 60-Minute Timer</button>' : ''}
                     </div>
                     <div class="iframe-container">
                         <iframe src="${MURAL_URL}" allow="clipboard-read; clipboard-write" title="Mural Board" loading="lazy"></iframe>
                         <div class="iframe-overlay"><span class="iframe-badge">Mural Board</span></div>
                     </div>
                     <div style="text-align:center;margin-top:16px;">
-                        <button class="btn btn-primary" id="btnFinishBrainstorm">✅ Done Brainstorming → Next Step</button>
-                    </div>
-                </div>`;
-            }
-            function renderCanvaScreen() {
-                return `
-                <div class="card glow-purple">
-                    <h2 style="font-size:2rem;font-weight:800;">📊 Step 4: Create Pitch Deck on Canva</h2>
-                    <p style="color:#64748b;">Use the embedded Canva editor to create your pitch presentation. Export as PDF when done.</p>
-                    <div class="iframe-container">
-                        <iframe src="${CANVA_URL}" allow="clipboard-read; clipboard-write" title="Canva" loading="lazy"></iframe>
-                        <div class="iframe-overlay"><span class="iframe-badge">Canva</span></div>
-                    </div>
-                    <div style="text-align:center;margin-top:16px;">
-                        <button class="btn btn-primary" id="btnFinishCanva">✅ Done with Canva → Upload PDF</button>
+                        <button class="btn btn-primary" id="btnFinishBrainstorm">Done Brainstorming - Next Step</button>
                     </div>
                 </div>`;
             }
@@ -662,20 +667,20 @@
                 const hasUpload = team && team.uploadedPDF;
                 return `
                 <div class="card glow-green">
-                    <h2 style="font-size:2rem;font-weight:800;">📤 Step 5: Upload Your Pitch PDF</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 4: Upload Your Pitch PDF</h2>
                     <p style="color:#64748b;">Upload your team's final pitch deck as a PDF file.</p>
                     <div class="upload-zone" id="uploadZone">
-                        <span class="upload-icon">📄</span>
+                        <span class="upload-icon">PDF</span>
                         <p style="font-weight:700;font-size:1.1rem;">Drag & Drop your PDF here or click to browse</p>
                         <p style="color:#94a3b8;">Only PDF files accepted</p>
                         <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" style="display:none;">
                     </div>
                     ${hasUpload ? `<div style="text-align:center;margin-top:16px;padding:16px;background:#f0fdf4;border-radius:16px;">
-                        <p style="color:#10b981;font-weight:700;">✅ PDF Uploaded: ${team.uploadedPDF.name}</p>
+                        <p style="color:#10b981;font-weight:700;">PDF Uploaded: ${team.uploadedPDF.name}</p>
                         <p style="color:#64748b;font-size:0.85rem;">${new Date(team.uploadedPDF.uploadedAt).toLocaleString()}</p>
-                    </div>` : '<p style="text-align:center;color:#f97316;margin-top:12px;">⚠️ Please upload your PDF before proceeding.</p>'}
+                    </div>` : '<p style="text-align:center;color:#f97316;margin-top:12px;">Please upload your PDF before proceeding.</p>'}
                     <div style="text-align:center;margin-top:16px;">
-                        <button class="btn btn-primary" id="btnReadyForPitch" ${!hasUpload?'disabled':''}>🎤 Ready to Pitch →</button>
+                        <button class="btn btn-primary" id="btnReadyForPitch" ${!hasUpload?'disabled':''}>Ready to Pitch</button>
                     </div>
                 </div>`;
             }
@@ -686,12 +691,12 @@
                 return `
                 <div class="card glow-orange" style="text-align:center;">
                     <img src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&q=70" alt="Preparation" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2rem;font-weight:800;">⏳ Step 6: Pitch Preparation</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 5: Pitch Preparation</h2>
                     <p style="color:#64748b;font-size:1.2rem;">You have <strong>30 seconds</strong> to prepare before your 3-minute pitch!</p>
                     <div class="timer-display ${remaining!==null&&remaining<10?'warning':''}" id="pitchPrepTimer" style="font-size:5rem;">${remaining!==null?formatTime(remaining):'0:30'}</div>
-                    ${!timerRunning && !timerEnded ? '<button class="btn btn-warning" id="btnStartPrepTimer">▶️ Start 30-Second Prep</button>' : ''}
-                    ${timerEnded ? '<p style="color:#f97316;font-weight:800;font-size:1.2rem;">⏰ Prep time over! Get ready to pitch!</p>' : ''}
-                    ${timerEnded ? '<button class="btn btn-primary" id="btnStartPitch">🎤 Begin 3-Minute Pitch →</button>' : ''}
+                    ${!timerRunning && !timerEnded ? '<button class="btn btn-warning" id="btnStartPrepTimer">Start 30-Second Prep</button>' : ''}
+                    ${timerEnded ? '<p style="color:#f97316;font-weight:800;font-size:1.2rem;">Prep time is over. Get ready to pitch.</p>' : ''}
+                    ${timerEnded ? '<button class="btn btn-primary" id="btnStartPitch">Begin 3-Minute Pitch</button>' : ''}
                 </div>`;
             }
             function renderPitchScreen() {
@@ -701,12 +706,12 @@
                 return `
                 <div class="card glow-pink" style="text-align:center;border-left:4px solid #ec4899;">
                     <img src="https://images.unsplash.com/photo-1559223607-a43c990c692c?w=800&q=70" alt="Pitch" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2rem;font-weight:800;">🎤 Step 7: Pitch Your Solution!</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 6: Pitch Your Solution</h2>
                     <p style="color:#64748b;font-size:1.2rem;">Each team has <strong>3 minutes</strong> to present their solution.</p>
                     <div class="timer-display ${remaining!==null&&remaining<30?'warning':''}" id="pitchTimer" style="font-size:5rem;">${remaining!==null?formatTime(remaining):'3:00'}</div>
-                    ${!timerRunning && !timerEnded ? '<button class="btn btn-accent" id="btnStartPitchTimer">▶️ Start 3-Minute Pitch Timer</button>' : ''}
-                    ${timerEnded ? '<p style="color:#ec4899;font-weight:800;font-size:1.2rem;">⏰ Time\'s up! Great pitch!</p>' : ''}
-                    ${timerEnded ? '<button class="btn btn-primary" id="btnGoToVoting">💰 Proceed to Voting →</button>' : ''}
+                    ${!timerRunning && !timerEnded ? '<button class="btn btn-accent" id="btnStartPitchTimer">Start 3-Minute Pitch Timer</button>' : ''}
+                    ${timerEnded ? '<p style="color:#ec4899;font-weight:800;font-size:1.2rem;">Time is up.</p>' : ''}
+                    ${timerEnded ? '<button class="btn btn-primary" id="btnGoToVoting">Proceed to Voting</button>' : ''}
                 </div>`;
             }
             function renderVotingScreen() {
@@ -732,33 +737,33 @@
                     tid, votes
                 ]) => {
                     const t = gameState.teams[tid];
-                    return t ? `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;font-size:0.8rem;">✅ ${t.name} voted</span>` :
+                    return t ? `<span style="background:#f0fdf4;padding:4px 10px;border-radius:12px;font-size:0.8rem;">${t.name} voted</span>` :
                         '';
                 }).join(' ');
 
                 return `
                 <div class="card glow-purple">
                     <img src="https://images.unsplash.com/photo-1553729459-afe8c8b58c7a?w=800&q=70" alt="Voting" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:200px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2rem;font-weight:800;">💰 Step 8: Token Voting</h2>
+                    <h2 style="font-size:2rem;font-weight:800;">Step 7: Token Voting</h2>
                     <p style="color:#64748b;">Distribute <strong>${TOTAL_VOTE_TOKENS} tokens</strong> among other teams. These represent company resources/investment. You cannot vote for your own team.</p>
-                    <div class="token-remaining">🎯 Remaining to allocate: <strong id="remainingTokens">${remainingTokens}</strong> / ${TOTAL_VOTE_TOKENS} tokens</div>
-                    ${hasVoted ? '<p style="color:#10b981;font-weight:700;text-align:center;">✅ You have submitted your votes!</p>' : ''}
+                    <div class="token-remaining">Remaining to allocate: <strong id="remainingTokens">${remainingTokens}</strong> / ${TOTAL_VOTE_TOKENS} tokens</div>
+                    ${hasVoted ? '<p style="color:#10b981;font-weight:700;text-align:center;">You have submitted your votes.</p>' : ''}
                     <div id="voteRowsContainer">${voteRows}</div>
                     <div style="text-align:center;margin-top:8px;color:#64748b;font-size:0.85rem;">${votedTeams}</div>
                     <div style="text-align:center;margin-top:16px;">
-                        ${!hasVoted ? '<button class="btn btn-accent" id="btnSubmitVotes">🗳️ Submit Votes</button>' : ''}
-                        ${allVotesSubmitted() ? '<button class="btn btn-success" id="btnShowResults">🏆 Show Results →</button>' : '<p style="color:#f97316;">Waiting for all teams to vote...</p>'}
+                        ${!hasVoted ? '<button class="btn btn-accent" id="btnSubmitVotes">Submit Votes</button>' : ''}
+                        ${allVotesSubmitted() ? '<button class="btn btn-success" id="btnShowResults">Show Results</button>' : '<p style="color:#f97316;">Waiting for all teams to vote...</p>'}
                     </div>
                 </div>`;
             }
             function renderResultsScreen() {
                 const winner = getWinningTeam();
                 const allTeams = getAllTeams().sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
-                const podiumEmojis = ['🥇', '🥈', '🥉', '🏅'];
+                const podiumLabels = ['1st', '2nd', '3rd', '4th'];
                 const teamCards = allTeams.map((t, i) => `
                     <div class="card ${i===0?'glow-orange':''}" style="text-align:center;${i===0?'border:3px solid #eab308;box-shadow:0 0 30px rgba(234,179,8,0.3);':''}">
-                        ${i===0 ? '<div class="winner-badge">🏆 WINNER</div>' : ''}
-                        <h3 style="font-size:1.5rem;font-weight:800;">${podiumEmojis[i]||''} ${t.name}</h3>
+                        ${i===0 ? '<div class="winner-badge">WINNER</div>' : ''}
+                        <h3 style="font-size:1.5rem;font-weight:800;">${podiumLabels[i]||''} ${t.name}</h3>
                         <div style="font-size:2.5rem;font-weight:900;color:${t.color};">${t.tokens||0}</div>
                         <p style="color:#64748b;">Tokens Earned</p>
                         <p style="color:#64748b;">Total All-Time: ${t.totalTokensEarned||0} tokens</p>
@@ -768,19 +773,19 @@
                 return `
                 <div class="card glow-orange" style="text-align:center;">
                     <img src="https://images.unsplash.com/photo-1533236897111-3e94666b2edf?w=800&q=70" alt="Winner" style="width:100%;max-width:500px;border-radius:20px;margin-bottom:20px;object-fit:cover;max-height:220px;" loading="lazy" onerror="this.style.display='none'">
-                    <h2 style="font-size:2.5rem;font-weight:900;">🏆 Results — Round ${gameState.roundNumber}</h2>
+                    <h2 style="font-size:2.5rem;font-weight:900;">Results - Round ${gameState.roundNumber}</h2>
                     <p style="color:#64748b;font-size:1.1rem;">The team with the most tokens wins! Tokens are recorded and accumulate across rounds.</p>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:20px;">${teamCards}</div>
-                    ${winner ? `<div style="margin-top:20px;font-size:1.3rem;font-weight:700;color:#eab308;">🎉 ${winner.name} is leading this round! 🎉</div>` : ''}
-                    <button class="btn btn-primary" style="margin-top:20px;" id="btnNewRound">🔄 Start New Round</button>
+                    ${winner ? `<div style="margin-top:20px;font-size:1.3rem;font-weight:700;color:#eab308;">${winner.name} is leading this round.</div>` : ''}
+                    <button class="btn btn-primary" style="margin-top:20px;" id="btnNewRound">Start New Round</button>
                 </div>`;
             }
             function renderTeamStatusBar(allTeams) {
                 const cards = allTeams.map(t => `
                     <div style="background:#fff;border-radius:16px;padding:14px;text-align:center;border:2px solid ${t.color}30;box-shadow:var(--shadow-sm);">
                         <strong style="color:${t.color};">${t.name}</strong>
-                        <div style="font-weight:800;">💰 ${t.tokens||0} tokens</div>
-                        <div style="font-size:0.75rem;color:#64748b;">Quiz: ${t.quizCompleted?'✅':'⏳'} | PDF: ${t.uploadedPDF?'✅':'⏳'} | Voted: ${gameState.votes[t.id]?'✅':'⏳'}</div>
+                        <div style="font-weight:800;">${t.tokens||0} tokens</div>
+                        <div style="font-size:0.75rem;color:#64748b;">Quiz: ${t.quizCompleted ? 'Done' : 'Wait'} | PDF: ${t.uploadedPDF ? 'Done' : 'Wait'} | Voted: ${gameState.votes[t.id] ? 'Done' : 'Wait'}</div>
                     </div>
                 `).join('');
                 return `
@@ -789,9 +794,9 @@
                 </div>`;
             }
 
-            // ==================== 事件绑定 ====================
+            // ==================== Event bindings ====================
             function bindEventListeners(stage, globalStage) {
-                // 登录阶段事件
+                // Login stage events
                 if (stage === 'login') {
                     document.querySelectorAll('.login-card').forEach(card => {
                         card.addEventListener('click', function() {
@@ -806,49 +811,78 @@
                     if (btnStartGame) btnStartGame.addEventListener('click', () => advanceStage('prompt'));
                     const btnCopy = document.getElementById('btnCopyRoom');
                     if (btnCopy) btnCopy.addEventListener('click', () => {
-                        if (currentRoomId && navigator.clipboard) navigator.clipboard.writeText(currentRoomId).then(() => showToast('📋 房间码已复制'));
+                        if (currentRoomId && navigator.clipboard) navigator.clipboard.writeText(currentRoomId).then(() => showToast('Room code copied.'));
                     });
                     const btnJoin = document.getElementById('btnJoinGame');
                     if (btnJoin) btnJoin.addEventListener('click', () => { if (currentTeamId) loginTeam(currentTeamId); });
                 }
 
-                // 以下为各阶段的按钮事件，核心区别是独立阶段使用 advanceTeamStage
+                // Stage-specific button events use advanceTeamStage for team progress.
                 if (stage === 'prompt') {
                     const btnQuiz = document.getElementById('btnStartQuiz');
                     if (btnQuiz) btnQuiz.addEventListener('click', () => advanceStage('quiz'));
                 }
                 if (stage === 'quiz') {
-                    // 原有测验绑定保持不变，但 submitQuizAnswers 成功会触发服务器自动推进团队到 mural
+                    document.querySelectorAll('.quiz-option').forEach(option => {
+                        option.addEventListener('click', function() {
+                            const questionIndex = this.getAttribute('data-q');
+                            document.querySelectorAll(`.quiz-option[data-q="${questionIndex}"]`).forEach(opt => opt.classList.remove('selected'));
+                            this.classList.add('selected');
+                        });
+                    });
+
+                    const btnSubmitQuiz = document.getElementById('btnSubmitQuiz');
+                    if (btnSubmitQuiz) btnSubmitQuiz.addEventListener('click', () => {
+                        const quiz = getQuizForCurrentPrompt();
+                        const answers = [];
+                        for (let i = 0; i < quiz.length; i++) {
+                            const selected = document.querySelector(`.quiz-option.selected[data-q="${i}"]`);
+                            if (!selected) {
+                                showToast(`Please answer question ${i + 1} before submitting.`);
+                                return;
+                            }
+                            answers[i] = Number(selected.getAttribute('data-o'));
+                        }
+
+                        quiz.forEach((q, i) => {
+                            document.querySelectorAll(`.quiz-option[data-q="${i}"]`).forEach(opt => {
+                                const optionIndex = Number(opt.getAttribute('data-o'));
+                                opt.classList.toggle('correct', optionIndex === q.correct);
+                                opt.classList.toggle('incorrect', optionIndex === answers[i] && optionIndex !== q.correct);
+                            });
+                        });
+
+                        submitQuizAnswers(answers);
+                    });
+
+                    const btnGoToMural = document.getElementById('btnGoToMural');
+                    if (btnGoToMural) btnGoToMural.addEventListener('click', () => advanceTeamStage('mural'));
                 }
                 if (stage === 'mural') {
                     const btnFinish = document.getElementById('btnFinishBrainstorm');
-                    if (btnFinish) btnFinish.addEventListener('click', () => advanceTeamStage('canva'));
-                    // 计时器启动逻辑与之前相同，保留
-                }
-                if (stage === 'canva') {
-                    const btnFinish = document.getElementById('btnFinishCanva');
                     if (btnFinish) btnFinish.addEventListener('click', () => advanceTeamStage('upload'));
+                    // Timer startup logic is preserved.
                 }
                 if (stage === 'upload') {
                     const btnReady = document.getElementById('btnReadyForPitch');
                     if (btnReady) btnReady.addEventListener('click', () => advanceTeamStage('pitch_prep_done'));
-                    // 上传逻辑保留
+                    // Upload logic is preserved.
                 }
                 if (stage === 'pitch_prep') {
-                    // 准备阶段：可跳过按钮
+                    // Preparation stage skip button.
                     const btnSkip = document.getElementById('btnSkipPrep');
                     if (btnSkip) btnSkip.addEventListener('click', () => {
                         socket.emit('skip_pitch_prep', { roomId: currentRoomId, teamId: currentTeamId });
                     });
                 }
                 if (stage === 'pitch') {
-                    // 演讲阶段：可跳过按钮
+                    // Pitch stage skip button.
                     const btnSkip = document.getElementById('btnSkipPitch');
                     if (btnSkip) btnSkip.addEventListener('click', () => {
                         socket.emit('skip_pitch', { roomId: currentRoomId, teamId: currentTeamId });
                     });
                 }
-                // 投票和结果阶段保持不变
+                // Voting and results bindings are handled elsewhere.
             }
 
             window.createRoom = createRoom;
@@ -858,3 +892,4 @@
     </script>
 </body>
 </html>
+

@@ -1,0 +1,56 @@
+Local testing notes
+===================
+
+1. Install dependencies
+
+   npm install
+
+2. Start the local server
+
+   npm start
+
+   The app should run at:
+
+   http://localhost:3000
+
+3. Google Sheet logging in local mode
+
+   The server can now start without Google credentials. If neither
+   GOOGLE_CREDENTIALS nor service-account.json exists, the app still runs
+   locally and only Google Sheet logging is skipped.
+
+   To test Google Sheet logging locally, use one of these options:
+
+   Option A: create service-account.json in the project root.
+   Option B: set GOOGLE_CREDENTIALS to the full service account JSON string
+   before running npm start.
+
+   The service account must have edit access to the configured spreadsheet:
+
+   15-aJvO1NEYRevBXK-Zz9noNNQUisiBf_J0NoyXgELO4
+
+4. Manual game flow test
+
+   Open http://localhost:3000 in two browser tabs.
+   In the first tab, create a room and select a team.
+   In the second tab, join the same room code and select another team.
+   Start the game, proceed to Blitz Quiz, answer all five questions, and submit.
+
+   Expected result:
+
+   - Quiz options are clickable.
+   - Submitting with missing answers shows a warning.
+   - Submitted answers advance that team to the brainstorm board.
+   - The team's state contains quizCompleted, quizScore, quizAnswers, and
+     quizSubmission.
+   - If Google credentials are configured, the quiz submission is appended to
+     the Google Sheet with the detailed JSON payload.
+
+5. Render deployment check
+
+   On Render, keep the same start command:
+
+   npm start
+
+   Set GOOGLE_CREDENTIALS in Render environment variables if you want Google
+   Sheet logging in production. Do not commit service-account.json to the repo.

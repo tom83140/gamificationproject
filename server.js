@@ -1,9 +1,10 @@
-// server.js – Brainstorm Arena (完整版)
+// server.js - Brainstorm Arena
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { google } = require('googleapis');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,28 +21,38 @@ app.use(express.static(__dirname, {
 }));
 
 const SPREADSHEET_ID = '15-aJvO1NEYRevBXK-Zz9noNNQUisiBf_J0NoyXgELO4';
+const serviceAccountPath = path.join(__dirname, 'service-account.json');
 const credentials = process.env.GOOGLE_CREDENTIALS
   ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
-  : require('./service-account.json'); // 本地开发仍可用文件
+  : (fs.existsSync(serviceAccountPath) ? require(serviceAccountPath) : null);
 
-const auth = new google.auth.GoogleAuth({
+const auth = credentials ? new google.auth.GoogleAuth({
   credentials,
   scopes: ['https://www.googleapis.com/auth/spreadsheets']
-});
-const sheets = google.sheets({ version: 'v4', auth });
+}) : null;
+const sheets = auth ? google.sheets({ version: 'v4', auth }) : null;
 let logSheetReady = false;
 
 async function initSheet() {
+    if (!sheets) {
+        console.warn('Google credentials not found. Local run will skip Google Sheet logging.');
+        return;
+    }
     try {
         await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
         await sheets.spreadsheets.values.append({
-            spreadsheetId: SPREADSHEET_ID, range: 'A1', valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS',
-            requestBody: { values: [['时间戳', '事件类型', '房间ID', '团队名称', '本轮得分', '累计得分', '补充信息']] }
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'A1',
+            valueInputOption: 'USER_ENTERED',
+            insertDataOption: 'INSERT_ROWS',
+            requestBody: {
+                values: [['Timestamp', 'Event Type', 'Room ID', 'Team Name', 'Round Score', 'Total Score', 'Details']]
+            }
         });
         logSheetReady = true;
-        console.log('✅ Google Sheet 已连接');
+        console.log('Google Sheet connected.');
     } catch (err) {
-        console.warn('⚠️ Google Sheets 连接失败，日志功能不可用:', err.message);
+        console.warn('Google Sheets connection failed. Logging is unavailable:', err.message);
     }
 }
 
@@ -49,17 +60,22 @@ async function appendLog(row) {
     if (!logSheetReady) return;
     try {
         await sheets.spreadsheets.values.append({
-            spreadsheetId: SPREADSHEET_ID, range: 'A1', valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS',
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'A1',
+            valueInputOption: 'USER_ENTERED',
+            insertDataOption: 'INSERT_ROWS',
             requestBody: { values: [row] }
         });
-    } catch (err) { console.error('写入 Sheet 失败:', err.message); }
+    } catch (err) {
+        console.error('Failed to write to Sheet:', err.message);
+    }
 }
 
 const rooms = new Map();
 
 io.on('connection', (socket) => {
-    console.log('🟢 连接:', socket.id);
-    appendLog([new Date().toISOString(), '用户连接', '', '', '', '', socket.id]);
+    console.log('Connected:', socket.id);
+    appendLog([new Date().toISOString(), 'User Connected', '', '', '', '', socket.id]);
 
     socket.on('create_room', (_, callback) => {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -77,16 +93,16 @@ io.on('connection', (socket) => {
         };
         rooms.set(roomId, initialState);
         socket.join(roomId);
-        appendLog([new Date().toISOString(), '创建房间', roomId, '', '', '', socket.id]);
+        appendLog([new Date().toISOString(), 'Room Created', roomId, '', '', '', socket.id]);
         callback({ success: true, roomId, gameState: initialState });
     });
 
     socket.on('join_room', (roomId, callback) => {
         const code = roomId.toUpperCase();
         const state = rooms.get(code);
-        if (!state) return callback({ success: false, error: '房间不存在' });
+        if (!state) return callback({ success: false, error: 'Room does not exist' });
         socket.join(code);
-        appendLog([new Date().toISOString(), '加入房间', code, '', '', '', socket.id]);
+        appendLog([new Date().toISOString(), 'Room Joined', code, '', '', '', socket.id]);
         callback({ success: true, roomId: code, gameState: state });
     });
 
@@ -95,13 +111,23 @@ io.on('connection', (socket) => {
         if (!state) return;
         if (!state.teams[teamId]) {
             state.teams[teamId] = {
-                id: teamId, name: teamData.name, color: teamData.color, avatarUrl: teamData.avatarUrl,
-                tokens: 0, totalTokensEarned: 0, uploadedPDF: null, quizCompleted: false, quizScore: 0, joinedAt: Date.now()
+                id: teamId,
+                name: teamData.name,
+                color: teamData.color,
+                avatarUrl: teamData.avatarUrl,
+                tokens: 0,
+                totalTokensEarned: 0,
+                uploadedPDF: null,
+                quizCompleted: false,
+                quizScore: 0,
+                quizAnswers: [],
+                quizSubmission: null,
+                joinedAt: Date.now()
             };
             if (!state.hostTeamId) state.hostTeamId = teamId;
             state.teamStages[teamId] = '';
             io.to(roomId).emit('state_updated', state);
-            appendLog([new Date().toISOString(), '团队加入', roomId, teamData.name, '', '', teamId]);
+            appendLog([new Date().toISOString(), 'Team Joined', roomId, teamData.name, '', '', teamId]);
         }
     });
 
@@ -119,11 +145,11 @@ io.on('connection', (socket) => {
     socket.on('advance_team_stage', ({ roomId, teamId, newStage }) => {
         const state = rooms.get(roomId);
         if (!state || !state.teams[teamId]) return;
-        const validStages = ['mural', 'canva', 'upload', 'pitch_prep_done'];
+        const validStages = ['mural', 'upload', 'pitch_prep_done'];
         if (!validStages.includes(newStage)) return;
         state.teamStages[teamId] = newStage;
         io.to(roomId).emit('state_updated', state);
-        appendLog([new Date().toISOString(), '团队进度', roomId, state.teams[teamId].name, newStage, '', '']);
+        appendLog([new Date().toISOString(), 'Team Progress', roomId, state.teams[teamId].name, newStage, '', '']);
 
         if (newStage === 'pitch_prep_done') {
             const allTeams = Object.keys(state.teams);
@@ -138,14 +164,45 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('submit_quiz', ({ roomId, teamId, score }) => {
+    socket.on('submit_quiz', ({ roomId, teamId, selectedPromptIndex, answers, details, score }) => {
         const state = rooms.get(roomId);
         if (state?.teams[teamId]) {
+            const safeDetails = Array.isArray(details) ? details.map((item) => ({
+                questionIndex: Number(item.questionIndex),
+                question: String(item.question || ''),
+                selectedIndex: Number(item.selectedIndex),
+                selectedAnswer: String(item.selectedAnswer || ''),
+                correctIndex: Number(item.correctIndex),
+                correctAnswer: String(item.correctAnswer || ''),
+                isCorrect: Boolean(item.isCorrect)
+            })) : [];
+            const safeAnswers = Array.isArray(answers) ? answers.map(Number) : [];
+            const calculatedScore = safeDetails.length
+                ? safeDetails.filter(item => item.isCorrect).length
+                : Number(score || 0);
+
             state.teams[teamId].quizCompleted = true;
-            state.teams[teamId].quizScore = score;
-            state.teamStages[teamId] = 'mural';   // 自动进入 mural
+            state.teams[teamId].quizScore = calculatedScore;
+            state.teams[teamId].quizAnswers = safeAnswers;
+            state.teams[teamId].quizSubmission = {
+                roundNumber: state.roundNumber,
+                selectedPromptIndex: Number.isInteger(selectedPromptIndex) ? selectedPromptIndex : state.selectedPromptIndex,
+                score: calculatedScore,
+                answers: safeAnswers,
+                details: safeDetails,
+                submittedAt: Date.now()
+            };
+            state.teamStages[teamId] = 'mural';
             io.to(roomId).emit('state_updated', state);
-            appendLog([new Date().toISOString(), '测验完成', roomId, state.teams[teamId].name, score, '', '']);
+            appendLog([
+                new Date().toISOString(),
+                'Quiz Completed',
+                roomId,
+                state.teams[teamId].name,
+                calculatedScore,
+                '',
+                JSON.stringify(state.teams[teamId].quizSubmission)
+            ]);
         }
     });
 
@@ -154,7 +211,7 @@ io.on('connection', (socket) => {
         if (state?.teams[teamId]) {
             state.teams[teamId].uploadedPDF = fileInfo;
             io.to(roomId).emit('state_updated', state);
-            appendLog([new Date().toISOString(), 'PDF上传', roomId, state.teams[teamId].name, '', '', fileInfo.name]);
+            appendLog([new Date().toISOString(), 'PDF Uploaded', roomId, state.teams[teamId].name, '', '', fileInfo.name]);
         }
     });
 
@@ -170,13 +227,13 @@ io.on('connection', (socket) => {
         });
         io.to(roomId).emit('state_updated', state);
         const voterName = state.teams[teamId].name;
-        appendLog([new Date().toISOString(), '投票', roomId, voterName, '', JSON.stringify(allocations), '']);
+        appendLog([new Date().toISOString(), 'Votes Submitted', roomId, voterName, '', JSON.stringify(allocations), '']);
 
         const allTeams = Object.values(state.teams);
         const allVoted = allTeams.every(t => state.votes[t.id]);
         if (allVoted) {
             allTeams.forEach(t => {
-                appendLog([new Date().toISOString(), '本轮得分', roomId, t.name, t.tokens, t.totalTokensEarned, `Round ${state.roundNumber}`]);
+                appendLog([new Date().toISOString(), 'Round Score', roomId, t.name, t.tokens, t.totalTokensEarned, `Round ${state.roundNumber}`]);
             });
             state.currentStage = 'results';
             io.to(roomId).emit('state_updated', state);
@@ -188,8 +245,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('🔴 断开:', socket.id);
-        appendLog([new Date().toISOString(), '断开连接', '', '', '', '', socket.id]);
+        console.log('Disconnected:', socket.id);
+        appendLog([new Date().toISOString(), 'Disconnected', '', '', '', '', socket.id]);
     });
 });
 
@@ -197,5 +254,5 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const PORT = process.env.PORT || 3000;
 initSheet().then(() => {
-    server.listen(PORT, () => console.log(`🚀 服务器运行在 http://localhost:${PORT}`));
+    server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
 });
